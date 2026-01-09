@@ -31,8 +31,8 @@ fn github_req(method: String, path: String) json:Value !fail {
     //
     let data = json:decode(res.body) ! throw fail
     // Update cache
-    req.set("when", json:int_value(now.to(int)))
-    req.set("body", json:string_value(res.body))
+    req.set("when", json:new_int(now.to(int)))
+    req.set("body", json:new_string(res.body))
     cache.save()
     //
     return data

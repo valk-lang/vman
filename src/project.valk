@@ -7,7 +7,7 @@ class Project {
     vendor_dir: String
     config_path: String
     config: json:Value
-    packages: Map[Package] (map[Package]{})
+    packages: Map[Package] (Map[Package]{})
 
     static fn new() SELF {
         let dir = fs:cwd()
