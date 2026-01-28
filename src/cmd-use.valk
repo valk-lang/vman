@@ -65,7 +65,11 @@ fn is_installed(version: String) bool {
 
 fn link_version(version_dir: String) {
     let to = version_dir + valk_exe()
+    #if OS == win
+    let link = bin_dir() + "valk.bat"
+    #else
     let link = bin_dir() + valk_exe()
+    #end
 
     // Check target
     if !fs:exists(to) : error("Tried to create a symbolic link to a file that does not exist: " + to)
@@ -73,12 +77,18 @@ fn link_version(version_dir: String) {
     // Remove existing link
     if fs:exists(link) : fs:delete(link) ! warn("Failed to remove previous link: " + link)
 
+    #if OS == win
+    // Create bat file
+    let content = "@echo off\n\"" + to + "\" \%*"
+    fs:write(link, content) ! error("Failed to create symlink")
+    #else
     // Create link
     fs:symlink(link, to, false) ! {
         if E == E.permissions : error("Failed to create symlink | Admin privileges required")
         if E == E.exists : error("Failed to create symlink | File already exists")
         error("Failed to create symlink")
     }
+    #end
 
     // Message
     if ansi:supported() : println("# Link '" + link.ansi.blue() + "' to '" + to.ansi.blue() + "'")
