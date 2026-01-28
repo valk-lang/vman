@@ -68,7 +68,7 @@ fn get_version_from_config() String {
     let data = fs:read(path) ! error("No config found: " + path)
 
     let json = json:decode(data) ! error("Invalid json in: " + path)
-    let version = json.get("valk").string()
+    let version = json.get("use").string()
     if version.is_empty() : error("No version specified in: " + path)
     return version
 }
