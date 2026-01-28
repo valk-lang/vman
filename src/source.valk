@@ -42,8 +42,8 @@ class Source {
         // let cache_vv = cache.get_versions(this.name) !? null
         // if isset(cache_vv) : return cache_vv
         // 
-        let versions = array[Version]{}
-        let data = json:array_value()
+        let versions = Array[Version]{}
+        let data = json:new_array()
         if this.type == SRC.github {
             data = github_req("GET", "/repos/" + this.user_name + "/" + this.repo_name + "/tags") ! {
                 error("Package not found: " + this.name)
@@ -60,7 +60,7 @@ class Source {
                 continue
             }
             v.hash = hash
-            versions.push(v)
+            versions.append(v)
         }
         this.versions = versions
 

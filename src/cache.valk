@@ -18,7 +18,7 @@ class Cache {
         let str = fs:read(path) ! error("Failed to read cache file: " + path)
         let data = json:decode(str) !? <{
             warn("Invalid json in cache")
-            return json:object_value()
+            return json:new_object()
         }
         return Cache{
             data: data

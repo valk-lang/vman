@@ -65,10 +65,10 @@ fn help(code: i32) $exit {
 
 
 fn extract_options(args: Array[String]) Array[String] {
-    let options = array[String]{}
+    let options = Array[String]{}
     each args as arg, i {
         if arg.starts_with("-") {
-            options.push(arg)
+            options.append(arg)
             args.remove(i--)
         }
     }

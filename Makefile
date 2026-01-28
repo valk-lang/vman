@@ -2,8 +2,8 @@
 SRC=$(wildcard src/*.valk)
 VERSION=0.0.1
 DEFS=--def "VERSION=$(VERSION)"
-vc=/opt/valk/0.0.7/valk
-# vc=valk
+# vc=/opt/valk/0.0.7/valk
+vc=valk
 DIST_FLAG=--static -c
 PACK_FILES=bin env
 PACK_FILES_WIN=bin

@@ -14,7 +14,7 @@ fn get_versions() Versions {
     let cd = vman_dir()
     let path = cd + "vman.json"
     let data = fs:read(path) !? "{}"
-    let conf = json:decode(data) !? json:object_value()
+    let conf = json:decode(data) !? json:new_object()
 
     let vman_latest = conf.get("vman-latest").string()
     let valk_latest : ?String = conf.get("valk-latest").string()
@@ -33,7 +33,7 @@ fn get_versions() Versions {
 
                 conf.set("vman-latest", res.get("vman"))
                 conf.set("valk-latest", res.get("valk"))
-                conf.set("last-update", json:int_value(now.to(int)))
+                conf.set("last-update", json:new_int(now.to(int)))
                 fs:write(path, conf.encode(true)) _
             }
         }
