@@ -1,6 +1,6 @@
 
 SRC=$(wildcard src/*.valk)
-VERSION=0.0.1
+VERSION=0.0.2
 DEFS=--def "VERSION=$(VERSION)"
 # vc=/opt/valk/0.0.7/valk
 vc=valk

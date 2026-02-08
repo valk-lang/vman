@@ -8,7 +8,7 @@ fn help_intro_use() {
     println("  vman use 0.0.1       Install valk version 0.0.1");
     println("  vman use latest      Install latest version");
     println("  vman use             Install valk version defined in project valk.json");
-    println("                     Expected config: { \"use\": \"0.0.4\" }");
+    println("                       Expected config: { \"use\": \"0.0.4\" }");
 }
 
 fn help_cmd_use(code: i32, msg: ?String (null)) $exit {
