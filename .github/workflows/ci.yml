@@ -27,6 +27,11 @@ jobs:
       - name: Check versions
         run: |
           source ~/.bashrc
+          ~/.vman/bin/vman -h
+          ~/.vman/bin/valk -v
+
+      - name: Check versions 2
+        run: |
           vman -h
           valk -v
 
