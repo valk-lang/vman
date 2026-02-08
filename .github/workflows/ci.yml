@@ -1,0 +1,29 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**/*.md'
+  pull_request:
+    types: [ready_for_review, synchronize, opened]
+    branches: [ main ]
+
+jobs:
+  linux-x64:
+    name: "Test linux-x64"
+    if: github.event.pull_request.draft == false
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install
+        run: curl -sSL https://valk-lang.dev/install.sh | bash
+
+      - name: Check versions
+        run: vman -h && valk -v
+
