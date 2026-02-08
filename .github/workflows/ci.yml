@@ -30,8 +30,7 @@ jobs:
           ~/.vman/bin/vman -h
           ~/.vman/bin/valk build -h
 
-      - name: Check versions 2
+      - name: Show rc
         run: |
-          vman -h
-          valk build -h
+          cat ~/.bashrc
 
