@@ -25,5 +25,8 @@ jobs:
         run: curl -sSL https://valk-lang.dev/install.sh | bash
 
       - name: Check versions
-        run: vman -h && valk -v
+        run: |
+          source ~/.bashrc
+          vman -h
+          valk -v
 
