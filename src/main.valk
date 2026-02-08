@@ -48,8 +48,8 @@ fn help(code: i32) $exit {
     print("\n")
     help_intro_use()
     // Toolchains
-    print("\n")
-    help_intro_toolchain()
+    // print("\n")
+    // help_intro_toolchain()
     // Other
     print("\n")
     println(emo("⚙️", "#") + " vman commands");

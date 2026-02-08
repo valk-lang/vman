@@ -23,11 +23,7 @@ curl -s https://valk-lang.dev/install.sh | bash
  vman use 0.0.1       Install valk version 0.0.1
  vman use latest      Install latest version
  vman use             Install valk version defined in project valk.json
-                    Expected config: { "valk": "0.0.5" }
-
-🔗 Toolchain commands
-
- vman toolchain get {target}
+                      Expected config: { "valk": "0.0.5" }
 
 ⚙️ Other
 

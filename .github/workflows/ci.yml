@@ -33,5 +33,5 @@ jobs:
       - name: Check versions 2
         run: |
           vman -h
-          valk -v
+          valk build -h
 
