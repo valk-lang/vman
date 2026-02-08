@@ -28,7 +28,7 @@ jobs:
         run: |
           source ~/.bashrc
           ~/.vman/bin/vman -h
-          ~/.vman/bin/valk -v
+          ~/.vman/bin/valk build -h
 
       - name: Check versions 2
         run: |
