@@ -4,14 +4,6 @@ use valk:json
 
 error ApiError (err)
 
-fn host() String {
-    // #if is_defined(DEV)
-    // return "http://localhost:9123"
-    // #else
-    return "https://valk-lang.dev"
-    // #end
-}
-
 fn cdn_get_versions() json:Value !ApiError {
     let resp = http:request("GET", "https://files.valk-cdn.dev/releases/versions.json") ! throw .err
     return json:decode(resp.body) ! throw .err
