@@ -23,6 +23,8 @@ fn main(args: Array[String]) {
         cmd_package_remove(args, options)
     } else if action == "self-update" {
         self_update()
+    } else if action == "clean" {
+        cmd_clean()
     } else if action == "version" {
         println(VERSION)
     } else {
@@ -55,6 +57,7 @@ fn help(code: i32) $exit {
     println(emo("⚙️", "#") + " vman commands");
     print("\n")
     println("  vman self-update     Update vman itself");
+    println("  vman clean           Clear downloaded Valk archives");
     println("  vman version         Show vman version");
     println("  vman {command} -h    Show help for a command");
 

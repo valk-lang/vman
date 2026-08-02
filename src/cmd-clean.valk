@@ -1,0 +1,8 @@
+use valk:fs
+
+fn cmd_clean() {
+    let dir = downloads_dir()
+    fs:delete_recursive(dir)
+    fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
+    println("# Cleared downloaded Valk archives")
+}

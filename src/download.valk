@@ -82,6 +82,8 @@ fn download_version(v: String, to_path: String) {
     } {
         print("\r# Download progress: " + req.recv_percent + "%")
     }
+    let response = req.response() ! error("Failed to receive download response: " + url)
+    if response.status != 200 : error("Version does not exist or download failed (HTTP " + response.status.to(String) + "): " + url)
     print("\n")
     println("# Download complete: " + to_path)
 

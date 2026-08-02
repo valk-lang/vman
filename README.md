@@ -28,6 +28,7 @@ curl -s https://valk-lang.dev/install.sh | bash
 ⚙️ Other
 
  vman self-update     Update vman itself
+ vman clean           Clear downloaded Valk archives
  vman version         Show vman version
  vman {command} -h    Show help for a command
  ```
