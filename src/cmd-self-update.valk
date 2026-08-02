@@ -37,6 +37,8 @@ fn self_update() {
     } {
         print("\r# Download progress: " + req.recv_percent + "%")
     }
+    let response = req.response() ! error("Failed to receive update response: " + url)
+    if response.status != 200 : error("Latest vman version is unavailable (HTTP " + response.status.to(String) + "): " + url)
     print("\n")
     println("# Download complete: " + to_path)
 
