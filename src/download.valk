@@ -39,9 +39,9 @@ fn get_pack_ext() String {
 
 fn download_and_unzip_version(v: String) {
     let vdir = version_dir(v)
-    if !fs:exists(vdir) : fs:mkdir(vdir) ! error("Failed to create directory: " + vdir)
     let to_path = downloads_dir() + "valk-"+ v +"-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
     download_version(v, to_path)
+    if !fs:exists(vdir) : fs:mkdir(vdir) ! error("Failed to create directory: " + vdir)
     // Unpack
     println("# Unpacking files to: " + vdir)
     #if OS == win
