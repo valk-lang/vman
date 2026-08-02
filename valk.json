@@ -1,5 +1,8 @@
 {
     "use": "0.2.3",
+    "define": {
+        "VERSION": "0.0.3"
+    },
     "dependencies": {
         "example": {
             "src": "github.com/valk-lang/pkg-example",
