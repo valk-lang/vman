@@ -15,21 +15,20 @@ class Source {
     versions: ?Array[Version] (null)
 
     static fn new(name: String) SELF {
-        if name.starts_with("github.com/") {
-            let project = name.part("github.com/".length, name.length)
-            let split = project.split("/")
-            if split.length != 2 : error("Invalid github package name: " + name)
-            let user = split.get(0) ! error("Missing user name")
-            let repo = split.get(1) ! error("Missing repo name")
-            // if !github_exists(user, repo) : error("Github repository does not exist")
-            return SELF {
-                type: SRC.github
-                name: name.replace("/", ".")
-                user_name: user
-                repo_name: repo
-            }
+        if !name.starts_with("github.com/") : error("Unknown source: " + name + ", package names must be with 'github.com/'.")
+        if !is_valid_source_name(name) : error("Invalid github package name: " + name)
+
+        let project = name.part("github.com/".length, name.length)
+        let split = project.split("/")
+        let user = split.get(0) ! error("Missing user name")
+        let repo = split.get(1) ! error("Missing repo name")
+        // if !github_exists(user, repo) : error("Github repository does not exist")
+        return SELF {
+            type: SRC.github
+            name: name.replace("/", ".")
+            user_name: user
+            repo_name: repo
         }
-        error("Unknown source: " + name + ", package names must be with 'github.com/'.")
     }
 
     fn str() String $to {
@@ -88,4 +87,25 @@ class Source {
         if isset(high) : return high
         throw .none
     }
+}
+
+fn is_valid_source_component(value: String) bool {
+    if value.is_empty() : return false
+    let i : uint = 0
+    while i < value.length {
+        let ch = value.get(i++)
+        if ch.is_alpha() || ch.is_number() || ch == '-' || ch == '_' || ch == '.' : continue
+        return false
+    }
+    return true
+}
+
+fn is_valid_source_name(name: String) bool {
+    if !name.starts_with("github.com/") : return false
+    let project = name.part("github.com/".length, name.length)
+    let split = project.split("/")
+    if split.length != 2 : return false
+    let user = split.get(0) !? ""
+    let repo = split.get(1) !? ""
+    return is_valid_source_component(user) && is_valid_source_component(repo)
 }

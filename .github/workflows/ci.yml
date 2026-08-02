@@ -28,6 +28,11 @@ jobs:
           ~/.vman/bin/vman -h
           ~/.vman/bin/valk build -h
 
+      - name: Run tests
+        run: |
+          source ~/.bashrc
+          make test
+
   macos-x64:
     name: "Test macos-x64"
     if: github.event.pull_request.draft == false
@@ -47,6 +52,11 @@ jobs:
           source ~/.bashrc
           ~/.vman/bin/vman -h
           ~/.vman/bin/valk build -h
+
+      - name: Run tests
+        run: |
+          source ~/.bashrc
+          make test
 
   macos-arm64:
     name: "Test macos-arm64"
@@ -68,6 +78,11 @@ jobs:
           ~/.vman/bin/vman -h
           ~/.vman/bin/valk build -h
 
+      - name: Run tests
+        run: |
+          source ~/.bashrc
+          make test
+
   win-x64:
     name: "Test win-x64"
     if: github.event.pull_request.draft == false
@@ -87,3 +102,12 @@ jobs:
           ~/.vman/bin/vman -h
           ~/.vman/bin/valk build -h
 
+      - name: Run tests
+        shell: pwsh
+        run: |
+          $sources = @(Get-ChildItem src/*.valk,src/tests/*.valk | ForEach-Object { $_.FullName })
+          New-Item -ItemType Directory -Force debug | Out-Null
+          & ~/.vman/bin/valk build $sources --test -o debug/vman-tests.exe --def "VERSION=0.0.3"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & ./debug/vman-tests.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

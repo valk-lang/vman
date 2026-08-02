@@ -14,3 +14,11 @@ fn vman_exe() String {
     return "vman"
     #end
 }
+
+fn shell_quote(value: String) String {
+    #if OS == win
+    return "\"" + value + "\""
+    #else
+    return "'" + value.replace("'", "'\\''") + "'"
+    #end
+}

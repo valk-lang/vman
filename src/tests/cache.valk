@@ -1,0 +1,17 @@
+use main
+use valk:json
+
+@ignore_access
+
+synctest "Cache: reuses the global instance" {
+    let previous = main:cache
+    let seeded = main:Cache {
+        data: json:new_object()
+    }
+    main:cache = seeded
+
+    let current = main:Cache.get()
+    assert(current == seeded)
+
+    main:cache = previous
+}

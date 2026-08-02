@@ -20,9 +20,11 @@ class Cache {
             warn("Invalid json in cache")
             return json:new_object()
         }
-        return Cache{
+        let result = Cache{
             data: data
         }
+        cache = result
+        return result
     }
     fn save() {
         let path = SELF.path()

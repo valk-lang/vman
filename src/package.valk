@@ -78,18 +78,19 @@ class Package {
         let vname = this.ver.name
 
         // Fetch
-        let cmd = "cd %repo_dir && git fetch"
+        let quoted_repo_dir = shell_quote(repo_dir)
+        let cmd = "git -C %quoted_repo_dir fetch"
         let fetch_code, _ = core:exec(cmd)
         if fetch_code == 127 : error("Git is not installed")
         if fetch_code != 0 : error("Failed to fetch latest package version: %cmd")
 
         // Checkout version
-        cmd = "cd %repo_dir && git checkout %vname"
+        cmd = "git -C %quoted_repo_dir checkout " + shell_quote(vname)
         let checkout_code, _ = core:exec(cmd)
         if checkout_code != 0 : error("Package version not found: %{this.ver.name}")
 
         // Pull
-        cmd = "cd %repo_dir && git pull origin %vname"
+        cmd = "git -C %quoted_repo_dir pull origin " + shell_quote(vname)
         let pull_code, _ = core:exec(cmd)
         if pull_code != 0 : error("Package version not found: %{this.ver.name}")
 
@@ -106,7 +107,7 @@ class Package {
         let dir = this.repo_dir
         if fs:exists(dir) : return
         let url = this.clone_url()
-        let cmd = "git clone %url %dir"
+        let cmd = "git clone " + shell_quote(url) + " " + shell_quote(dir)
         let code, _ = core:exec(cmd)
         if code != 0 : error("Failed to clone package: %cmd")
     }

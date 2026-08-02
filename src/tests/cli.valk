@@ -9,3 +9,12 @@ test "CLI: extracts options without disturbing arguments" {
     assert(options == Array[String] { "-h", "--force" })
     assert(args == Array[String] { "vman", "install", "pkg" })
 }
+
+test "CLI: quotes shell arguments" {
+    #if OS == win
+    assert(main:shell_quote("repo path") == "\"repo path\"")
+    #else
+    assert(main:shell_quote("repo path") == "'repo path'")
+    assert(main:shell_quote("it's") == "'it'\\''s'")
+    #end
+}
