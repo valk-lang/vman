@@ -1,4 +1,6 @@
 
+error VersionError (invalid)
+
 class Version {
     name: String
     hash: String ("")
@@ -7,7 +9,7 @@ class Version {
     n3: uint (0)
     can_compare: bool (false)
 
-    static fn new(name: String) SELF !invalid {
+    static fn new(name: String) SELF !VersionError {
         let v = name
         if v.starts_with("v") || v.starts_with("V") : v = v.part(1, v.length)
 

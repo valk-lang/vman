@@ -59,21 +59,24 @@ class Project {
             let n = dep.get("src").string()
             if n != pkg.name : error("Failed to add package to config. Name already used: " + name)
         }
-        dep.set_string("src", pkg.name)
-        dep.set_string("version", pkg.ver.name)
+        dep = dep.set("src", json:new_string(pkg.name))
+        dep = dep.set("version", json:new_string(pkg.ver.name))
 
         let mask = pkg.mask
         if isset(mask) {
-            dep.set_string("update", mask.name)
+            dep = dep.set("update", json:new_string(mask.name))
         } else {
-            dep.remove("update")
+            dep = dep.remove("update")
         }
+
+        deps = deps.set(name, dep)
+        this.config = this.config.set("dependencies", deps)
 
         fs:write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
     }
 
     fn install_packages() {
-        let deps = this.config.get("dependencies").map()
+        let deps = this.config.get("dependencies").object().values
 
         if deps.length == 0 {
             println("# This project has no dependencies")

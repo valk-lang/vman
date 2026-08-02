@@ -1,6 +1,5 @@
 
 use valk:json
-use valk:http
 use valk:fs
 use valk:core
 
@@ -80,19 +79,19 @@ class Package {
 
         // Fetch
         let cmd = "cd %repo_dir && git fetch"
-        let code, out = core:exec(cmd)
-        if code == 127 : error("Git is not installed")
-        if code != 0 : error("Failed to fetch latest package version: %cmd")
+        let fetch_code, _ = core:exec(cmd)
+        if fetch_code == 127 : error("Git is not installed")
+        if fetch_code != 0 : error("Failed to fetch latest package version: %cmd")
 
         // Checkout version
         cmd = "cd %repo_dir && git checkout %vname"
-        (code, out) = core:exec(cmd)
-        if code != 0 : error("Package version not found: %{this.ver.name}")
+        let checkout_code, _ = core:exec(cmd)
+        if checkout_code != 0 : error("Package version not found: %{this.ver.name}")
 
         // Pull
         cmd = "cd %repo_dir && git pull origin %vname"
-        (code, out) = core:exec(cmd)
-        if code != 0 : error("Package version not found: %{this.ver.name}")
+        let pull_code, _ = core:exec(cmd)
+        if pull_code != 0 : error("Package version not found: %{this.ver.name}")
 
         //
         let files = fs:files_in(repo_dir, false)
@@ -108,7 +107,7 @@ class Package {
         if fs:exists(dir) : return
         let url = this.clone_url()
         let cmd = "git clone %url %dir"
-        let code, out = core:exec(cmd)
+        let code, _ = core:exec(cmd)
         if code != 0 : error("Failed to clone package: %cmd")
     }
 

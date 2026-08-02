@@ -23,16 +23,16 @@ fn self_update() {
     }
 
     let req = http:create_request("GET", url, options) ! {
-        if E == E.invalid_url : error("Invalid URL: " + url)
+        if E.code == E.invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
     while req.progress() ! {
         print("\n")
         println(req.recv_buffer)
-        match E {
-            E.disconnect => error("Failed to download: " + url + " | " + EMSG)
-            default => error("Invalid response from: " + url + " | " + EMSG)
+        match E.code {
+            E.disconnected => error("Failed to download: " + url)
+            default => error("Invalid response from: " + url)
         }
     } {
         print("\r# Download progress: " + req.recv_percent + "%")

@@ -84,8 +84,8 @@ fn link_version(version_dir: String) {
     #else
     // Create link
     fs:symlink(link, to, false) ! {
-        if E == E.permissions : error("Failed to create symlink | Admin privileges required")
-        if E == E.exists : error("Failed to create symlink | File already exists")
+        if E.code == E.access : error("Failed to create symlink | Admin privileges required")
+        if E.code == E.exists : error("Failed to create symlink | File already exists")
         error("Failed to create symlink")
     }
     #end

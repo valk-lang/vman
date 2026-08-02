@@ -1,6 +1,8 @@
 
 use valk:json
 
+error SourceError (none)
+
 enum SRC {
     github
 }
@@ -43,16 +45,16 @@ class Source {
         // if isset(cache_vv) : return cache_vv
         // 
         let versions = Array[Version]{}
-        let data = json:new_array()
+        let data: json:Value = json:new_array()
         if this.type == SRC.github {
             data = github_req("GET", "/repos/" + this.user_name + "/" + this.repo_name + "/tags") ! {
                 error("Package not found: " + this.name)
             }
         }
-        let tags = data.array()
+        let tags = data.array().values
         each tags as tag {
 
-            let name = tag.get("name")
+            let name = tag.get("name").string()
             let v = Version.new(name) ! continue
             let hash = tag.get("commit").get("sha").string()
             if hash.is_empty() {
@@ -72,7 +74,7 @@ class Source {
         return versions
     }
 
-    fn get_highest_version(mask: ?Mask) Version !none {
+    fn get_highest_version(mask: ?Mask) Version !SourceError {
         let vv = this.get_versions()
         let high : ?Version = null
         each vv as v {
@@ -84,6 +86,6 @@ class Source {
             if v > high : high = v
         }
         if isset(high) : return high
-        throw none
+        throw .none
     }
 }

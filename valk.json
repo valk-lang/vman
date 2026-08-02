@@ -1,5 +1,5 @@
 {
-    "valk": "0.0.15",
+    "use": "0.2.3",
     "dependencies": {
         "example": {
             "src": "github.com/valk-lang/pkg-example",

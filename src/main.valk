@@ -24,7 +24,7 @@ fn main(args: Array[String]) {
     } else if action == "self-update" {
         self_update()
     } else if action == "version" {
-        println(#STR(VERSION))
+        println(VERSION)
     } else {
         println("Unknown command: '" + action + "'")
         exit(1)
@@ -34,7 +34,7 @@ fn main(args: Array[String]) {
 fn help(code: i32) $exit {
 
     println("-----------------------")
-    println("  Valk Manager " + #STR(VERSION))
+    println("  Valk Manager " + VERSION)
     println("-----------------------")
 
     // Packages

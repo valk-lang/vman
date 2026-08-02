@@ -8,11 +8,25 @@ fn cdn_host() String {
 }
 
 fn get_os() String {
-    return #STR(OS)
+    #if OS == win
+    return "win"
+    #elif OS == linux
+    return "linux"
+    #elif OS == macos
+    return "macos"
+    #else
+    return "unknown"
+    #end
 }
 
 fn get_arch() String {
-    return #STR(ARCH)
+    #if ARCH == x64
+    return "x64"
+    #elif ARCH == arm64
+    return "arm64"
+    #else
+    return "unknown"
+    #end
 }
 
 fn get_pack_ext() String {
@@ -58,16 +72,16 @@ fn download_version(v: String, to_path: String) {
     }
 
     let req = http:create_request("GET", url, options) ! {
-        if E == E.invalid_url : error("Invalid URL: " + url)
+        if E.code == E.invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
     while req.progress() ! {
         print("\n")
         println(req.recv_buffer)
-        match E {
-            E.disconnect => error("Failed to download: " + url + " | " + EMSG)
-            default => error("Invalid response from: " + url + " | " + EMSG)
+        match E.code {
+            E.disconnected => error("Failed to download: " + url)
+            default => error("Invalid response from: " + url)
         }
     } {
         print("\r# Download progress: " + req.recv_percent + "%")

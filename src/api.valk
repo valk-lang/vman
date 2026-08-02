@@ -2,6 +2,8 @@
 use valk:http
 use valk:json
 
+error ApiError (err)
+
 fn host() String {
     // #if is_defined(DEV)
     // return "http://localhost:9123"
@@ -10,7 +12,7 @@ fn host() String {
     // #end
 }
 
-fn api_get_versions() json:Value !err {
-    let resp = http:request("GET", host() + "/api/versions") ! throw err
-    return json:decode(resp.body) ! throw err
+fn api_get_versions() json:Value !ApiError {
+    let resp = http:request("GET", host() + "/api/versions") ! throw .err
+    return json:decode(resp.body) ! throw .err
 }

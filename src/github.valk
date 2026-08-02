@@ -3,12 +3,14 @@ use valk:json
 use valk:http
 use valk:time
 
-fn github_req(method: String, path: String) json:Value !fail {
+error GithubError (fail)
+
+fn github_req(method: String, path: String) json:Value !GithubError {
     let url = "https://api.github.com" + path
 
     let cache = Cache.get()
     let reqs = cache.data.get("requests")
-    let id = #STR(VERSION) + ":%method:%url"
+    let id = VERSION + ":%method:%url"
     let req = reqs.get(id)
     let when = req.get("when").int().to(uint)
     let body = req.get("body").string()
@@ -22,17 +24,19 @@ fn github_req(method: String, path: String) json:Value !fail {
 
     // println("REQUEST : %method %url")
     let options = http:Options{}
-    options.set_header("User-Agent", "Vpkg package manager " + #STR(VERSION))
+    options.set_header("User-Agent", "Vpkg package manager " + VERSION)
     let res = http:request(method, url, options) ! {
         println("# Request failed: " + url)
-        throw fail
+        throw .fail
     }
-    if res.status != 200 : throw fail
+    if res.status != 200 : throw .fail
     //
-    let data = json:decode(res.body) ! throw fail
+    let data = json:decode(res.body) ! throw .fail
     // Update cache
-    req.set("when", json:new_int(now.to(int)))
-    req.set("body", json:new_string(res.body))
+    req = req.set("when", json:new_int(now.to(int)))
+    req = req.set("body", json:new_string(res.body))
+    reqs = reqs.set(id, req)
+    cache.data = cache.data.set("requests", reqs)
     cache.save()
     //
     return data

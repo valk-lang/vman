@@ -20,7 +20,7 @@ fn get_versions() Versions {
     let valk_latest : ?String = conf.get("valk-latest").string()
     let last_update = conf.get("last-update").int().to(uint)
 
-    if vman_latest.is_empty() : vman_latest = #STR(VERSION)
+    if vman_latest.is_empty() : vman_latest = VERSION
     if valk_latest.is_empty() : valk_latest = null
 
     let now = time:microtime()
@@ -41,7 +41,7 @@ fn get_versions() Versions {
 
     return Versions {
         vman_latest: vman_latest
-        vman_current: #STR(VERSION)
+        vman_current: VERSION
         valk: valk_latest
     }
 }
