@@ -1,0 +1,11 @@
+
+use main
+
+@ignore_access
+
+fn must_version(name: String) main:Version {
+    return main:Version.new(name) ! {
+        assert(false)
+        return main:Version { name: name }
+    }
+}

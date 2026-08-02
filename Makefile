@@ -1,7 +1,6 @@
 
 SRC=$(wildcard src/*.valk)
-TEST_SRC=$(wildcard tests/src/*.valk)
-TEST_CONFIG=tests/valk.json
+TEST_SRC=$(wildcard src/tests/*.valk)
 TEST_BIN=debug/vman-tests
 VERSION=0.0.3
 DEFS=--def "VERSION=$(VERSION)"
@@ -20,9 +19,9 @@ dev: $(SRC)
 win: $(SRC)
 	$(vc) build src/*.valk -o /mnt/c/www/vman.exe $(DEFS) --target win-x64
 
-test: $(SRC) $(TEST_SRC) $(TEST_CONFIG)
+test: $(SRC) $(TEST_SRC)
 	mkdir -p debug
-	$(vc) build tests -o $(TEST_BIN) $(DEFS) --test
+	$(vc) build $(SRC) $(TEST_SRC) -o $(TEST_BIN) $(DEFS) --test
 	./$(TEST_BIN)
 
 clean:

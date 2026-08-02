@@ -1,11 +1,11 @@
 
-use vman
+use main
 
 @ignore_access
 
 test "CLI: extracts options without disturbing arguments" {
     let args = Array[String] { "vman", "install", "-h", "pkg", "--force" }
-    let options = vman:extract_options(args)
+    let options = main:extract_options(args)
     assert(options == Array[String] { "-h", "--force" })
     assert(args == Array[String] { "vman", "install", "pkg" })
 }
