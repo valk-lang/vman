@@ -7,16 +7,12 @@ use valk:ansi
 class Versions {
     vman_latest: String
     vman_current: String
-    valk_default: ?String
-    valk_latest: ?String
-    valk_dev: ?String
+    valk: json:Value
 }
 
 class ReleaseVersions {
     vman_latest: String
-    valk_default: ?String
-    valk_latest: ?String
-    valk_dev: ?String
+    valk: json:Value
 }
 
 fn release_channel(data: json:Value, name: String, channel: String) ?String {
@@ -37,11 +33,10 @@ fn release_channel_or_default(data: json:Value, name: String, channel: String) S
 }
 
 fn parse_release_versions(data: json:Value) ReleaseVersions {
+    let valk = data.get("valk")
     return ReleaseVersions {
         vman_latest: release_channel_or_default(data, "vman", "latest")
-        valk_default: release_channel(data, "valk", "default")
-        valk_latest: release_channel(data, "valk", "latest")
-        valk_dev: release_channel(data, "valk", "dev")
+        valk: valk
     }
 }
 
@@ -52,34 +47,22 @@ fn get_versions() Versions {
     let conf = json:decode(data) !? json:new_object()
 
     let vman_latest = conf.get("vman-latest").string()
-    let valk_default : ?String = conf.get("valk-default").string()
-    let valk_latest : ?String = conf.get("valk-latest").string()
-    let valk_dev : ?String = conf.get("valk-dev").string()
+    let valk = conf.get("valk")
     let last_update = conf.get("last-update").int().to(uint)
 
     if vman_latest.is_empty() : vman_latest = VERSION
-    if valk_default.is_empty() : valk_default = null
-    if valk_latest.is_empty() : valk_latest = null
-    if valk_dev.is_empty() : valk_dev = null
 
     let now = time:microtime()
     let one_day : uint = 1000 * 1000 * 60 * 60 * 1 // 1 hour
-    if now - last_update > one_day || !isset(valk_default) {
+    if now - last_update > one_day || !valk.has("default") {
         cdn_get_versions() -> res {
             let fetched = parse_release_versions(res)
-            if !fetched.vman_latest.is_empty() && isset(fetched.valk_default) {
-                let fetched_default = optional_string(fetched.valk_default)
+            if !fetched.vman_latest.is_empty() && fetched.valk.has("default") {
                 vman_latest = fetched.vman_latest
-                valk_default = fetched.valk_default
-                valk_latest = fetched.valk_latest
-                valk_dev = fetched.valk_dev
+                valk = fetched.valk
 
                 conf.set("vman-latest", json:new_string(fetched.vman_latest))
-                conf.set("valk-default", json:new_string(fetched_default))
-                if isset(fetched.valk_latest) : conf.set("valk-latest", json:new_string(optional_string(fetched.valk_latest)))
-                else : conf.remove("valk-latest")
-                if isset(fetched.valk_dev) : conf.set("valk-dev", json:new_string(optional_string(fetched.valk_dev)))
-                else : conf.remove("valk-dev")
+                conf.set("valk", fetched.valk)
                 conf.set("last-update", json:new_int(now.to(int)))
                 fs:write(path, conf.encode(true)) _
             }
@@ -89,28 +72,19 @@ fn get_versions() Versions {
     return Versions {
         vman_latest: vman_latest
         vman_current: VERSION
-        valk_default: valk_default
-        valk_latest: valk_latest
-        valk_dev: valk_dev
+        valk: valk
     }
 }
 
 fn resolve_valk_version(vv: Versions, requested: String) String {
     if requested == "default" {
-        let version = vv.valk_default
-        if !isset(version) : error("vman was unable to find the default valk version")
+        let version = vv.valk.get("default").string()
+        if version.is_empty() : error("vman was unable to find the default valk version")
         return version
     }
-    if requested == "latest" {
-        let version = vv.valk_latest
-        if !isset(version) : error("vman was unable to find the latest valk version")
-        return version
-    }
-    if requested == "dev" {
-        let version = vv.valk_dev
-        if !isset(version) : error("vman was unable to find the dev valk version")
-        return version
-    }
+    let named = vv.valk.get(requested).string()
+    if !named.is_empty() : return named
+    if !is_valid_version(requested) : error("vman was unable to find the valk version channel: " + requested)
     return requested
 }
 

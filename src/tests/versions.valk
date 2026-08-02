@@ -8,9 +8,10 @@ test "Versions: parses the CDN release layout" {
     let release = main:parse_release_versions(data)
 
     assert(release.vman_latest == "0.0.3")
-    assert(release.valk_default == "0.2.3")
-    assert(release.valk_latest == "0.2.4")
-    assert(release.valk_dev == "0.2.5")
+    assert(release.valk.get("default").string() == "0.2.3")
+    assert(release.valk.get("latest").string() == "0.2.4")
+    assert(release.valk.get("dev").string() == "0.2.5")
+    assert(main:resolve_valk_version(main:Versions { vman_latest: "0.0.3" vman_current: "0.0.3" valk: release.valk }, "dev") == "0.2.5")
 }
 
 test "Versions: falls back to the CDN default channel" {
@@ -18,22 +19,22 @@ test "Versions: falls back to the CDN default channel" {
     let release = main:parse_release_versions(data)
 
     assert(release.vman_latest == "0.0.2")
-    assert(release.valk_default == "0.2.3")
-    assert(!isset(release.valk_latest))
-    assert(!isset(release.valk_dev))
+    assert(release.valk.get("default").string() == "0.2.3")
+    assert(!release.valk.has("latest"))
+    assert(!release.valk.has("dev"))
 }
 
 test "Versions: resolves named valk channels" {
-    let versions = main:Versions {
-        vman_latest: "0.0.3"
-        vman_current: "0.0.3"
-        valk_default: "0.2.3"
-        valk_latest: "0.2.4"
-        valk_dev: "0.2.5"
-    }
+    let channels = json:new_object()
+    channels = channels.set("default", json:new_string("0.2.3"))
+    channels = channels.set("latest", json:new_string("0.2.4"))
+    channels = channels.set("dev", json:new_string("0.2.5"))
+    channels = channels.set("nightly", json:new_string("0.2.6"))
+    let versions = main:Versions { vman_latest: "0.0.3" vman_current: "0.0.3" valk: channels }
 
     assert(main:resolve_valk_version(versions, "default") == "0.2.3")
     assert(main:resolve_valk_version(versions, "latest") == "0.2.4")
     assert(main:resolve_valk_version(versions, "dev") == "0.2.5")
+    assert(main:resolve_valk_version(versions, "nightly") == "0.2.6")
     assert(main:resolve_valk_version(versions, "0.2.2") == "0.2.2")
 }
