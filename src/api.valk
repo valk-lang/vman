@@ -12,7 +12,7 @@ fn host() String {
     // #end
 }
 
-fn api_get_versions() json:Value !ApiError {
-    let resp = http:request("GET", host() + "/api/versions") ! throw .err
+fn cdn_get_versions() json:Value !ApiError {
+    let resp = http:request("GET", "https://files.valk-cdn.dev/releases/versions.json") ! throw .err
     return json:decode(resp.body) ! throw .err
 }

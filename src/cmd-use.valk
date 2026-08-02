@@ -6,9 +6,9 @@ fn help_intro_use() {
     println(emo("💿", "#") + " Valk version control");
     println("");
     println("  vman use 0.0.1       Install valk version 0.0.1");
+    println("  vman use             Install the default valk version");
     println("  vman use latest      Install latest version");
-    println("  vman use             Install valk version defined in project valk.json");
-    println("                       Expected config: { \"use\": \"0.0.4\" }");
+    println("  vman use dev         Install the dev valk version");
 }
 
 fn help_cmd_use(code: i32, msg: ?String (null)) $exit {
@@ -29,13 +29,8 @@ fn cmd_use(args: Array[String], options: Array[String]) {
 
     let vv = get_versions()
 
-    let version = args.get(0) !? get_version_from_config()
-
-    if version == "latest" {
-        let valk_latest = vv.valk
-        if !isset(valk_latest) : error("vman was unable to find out what the latest valk version is")
-        version = valk_latest
-    }
+    let requested = args.get(0) !? "default"
+    let version = resolve_valk_version(vv, requested)
 
     if !is_valid_version(version) : error("Invalid version syntax: '" + version + "'")
 
