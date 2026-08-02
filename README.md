@@ -23,7 +23,7 @@ curl -s https://valk-lang.dev/install.sh | bash
  vman use 0.0.1       Install valk version 0.0.1
  vman use latest      Install latest version
  vman use             Install valk version defined in project valk.json
-                      Expected config: { "valk": "0.0.5" }
+                      Expected config: { "use": "0.2.3" }
 
 ⚙️ Other
 
@@ -31,3 +31,9 @@ curl -s https://valk-lang.dev/install.sh | bash
  vman version         Show vman version
  vman {command} -h    Show help for a command
  ```
+
+## Testing
+
+```sh
+make test
+```

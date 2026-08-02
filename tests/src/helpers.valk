@@ -1,0 +1,11 @@
+
+use vman
+
+@ignore_access
+
+fn must_version(name: String) vman:Version {
+    return vman:Version.new(name) ! {
+        assert(false)
+        return vman:Version { name: name }
+    }
+}

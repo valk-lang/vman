@@ -1,0 +1,63 @@
+
+use vman
+
+@ignore_access
+
+fn version_is_invalid(name: String) bool {
+    vman:Version.new(name) ! {
+        return E.code == E.invalid
+    }
+    return false
+}
+
+test "Version: parses semantic versions" {
+    let plain = must_version("1.2.3")
+    assert(plain.name == "1.2.3")
+    assert(plain.n1 == 1)
+    assert(plain.n2 == 2)
+    assert(plain.n3 == 3)
+    assert(plain.can_compare)
+    assert(plain.to(String) == "1.2.3")
+
+    let prefixed = must_version("v10.20.30")
+    assert(prefixed.n1 == 10)
+    assert(prefixed.n2 == 20)
+    assert(prefixed.n3 == 30)
+    assert(prefixed.name == "v10.20.30")
+}
+
+test "Version: rejects invalid syntax" {
+    assert(version_is_invalid(""))
+    assert(version_is_invalid("1"))
+    assert(version_is_invalid("1.2"))
+    assert(version_is_invalid("1.2.3.4"))
+    assert(version_is_invalid("1.x.3"))
+    assert(version_is_invalid("v1.2"))
+}
+
+test "Version: compares each component in order" {
+    let v123 = must_version("1.2.3")
+    assert(v123 == must_version("v1.2.3"))
+    assert(v123 < must_version("1.2.4"))
+    assert(must_version("1.2.9") < must_version("1.3.0"))
+    assert(must_version("1.9.9") < must_version("2.0.0"))
+    assert(!(must_version("2.0.0") < must_version("1.9.9")))
+    assert(must_version("2.0.0") > must_version("1.9.9"))
+    assert(v123 <= must_version("1.2.3"))
+    assert(v123 >= must_version("1.2.3"))
+}
+
+test "Version: sorts in semantic order" {
+    let versions = Array[vman:Version] {
+        must_version("2.0.0"),
+        must_version("1.10.0"),
+        must_version("1.2.9"),
+        must_version("1.2.3")
+    }
+    versions.sort()
+    assert((versions.get(0) !? must_version("0.0.0")).name == "1.2.3")
+    assert((versions.get(1) !? must_version("0.0.0")).name == "1.2.9")
+    assert((versions.get(2) !? must_version("0.0.0")).name == "1.10.0")
+    assert((versions.get(3) !? must_version("0.0.0")).name == "2.0.0")
+}
+

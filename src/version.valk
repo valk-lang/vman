@@ -18,16 +18,17 @@ class Version {
         }
 
         let parts = v.split(".")
-        if parts.length == 3 {
-            let all_ints = true
-            each parts as part : if !part.is_integer() : all_ints = false
-            if all_ints {
-                res.n1 = (parts.get(0) !? "0").to_uint() !? 0
-                res.n2 = (parts.get(1) !? "0").to_uint() !? 0
-                res.n3 = (parts.get(2) !? "0").to_uint() !? 0
-                res.can_compare = true
-            }
-        }
+        if parts.length != 3 : throw .invalid
+
+        let p1 = parts.get(0) !? ""
+        let p2 = parts.get(1) !? ""
+        let p3 = parts.get(2) !? ""
+        if !p1.is_integer() || !p2.is_integer() || !p3.is_integer() : throw .invalid
+
+        res.n1 = p1.to_uint() ! throw .invalid
+        res.n2 = p2.to_uint() ! throw .invalid
+        res.n3 = p3.to_uint() ! throw .invalid
+        res.can_compare = true
         return res
     }
 
@@ -38,22 +39,23 @@ class Version {
     // Compare
     fn eq(v: Version) bool $eq {
         if this.name == v.name : return true
+        if !this.can_compare || !v.can_compare : return false
         return this.n1 == v.n1 && this.n2 == v.n2 && this.n3 == v.n3
     }
     fn lt(v: Version) bool $lt {
-        if !this.can_compare : return true
-        if this.n1 < v.n1 : return true
-        if this.n2 < v.n2 : return true
-        if this.n3 < v.n3 : return true
-        return false
+        if this.eq(v) : return false
+        if !this.can_compare || !v.can_compare : return this.name < v.name
+        if this.n1 != v.n1 : return this.n1 < v.n1
+        if this.n2 != v.n2 : return this.n2 < v.n2
+        return this.n3 < v.n3
     }
     fn lte(v: Version) bool $lte {
         return this.lt(v) || this.eq(v)
     }
     fn gt(v: Version) bool $gt {
-        return !this.lte(v)
+        return v.lt(this)
     }
     fn gte(v: Version) bool $gte {
-        return !this.lt(v)
+        return this.gt(v) || this.eq(v)
     }
 }

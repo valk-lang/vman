@@ -1,0 +1,38 @@
+
+use vman
+
+@ignore_access
+
+fn source_with_versions(names: Array[String]) vman:Source {
+    let versions = Array[vman:Version]{}
+    each names as name : versions.append(must_version(name))
+    return vman:Source {
+        type: vman:SRC.github
+        name: "github.com.valk-lang.test-package"
+        user_name: "valk-lang"
+        repo_name: "test-package"
+        versions: versions
+    }
+}
+
+test "Source: parses GitHub package names" {
+    let source = vman:Source.new("github.com/valk-lang/pkg-example")
+    assert(source.type == vman:SRC.github)
+    assert(source.name == "github.com.valk-lang.pkg-example")
+    assert(source.user_name == "valk-lang")
+    assert(source.repo_name == "pkg-example")
+    assert(source.to(String) == source.name)
+}
+
+test "Source: selects the highest compatible version" {
+    let source = source_with_versions(.{ "1.2.3", "2.0.0", "1.10.0", "1.3.1" })
+    let highest = source.get_highest_version(null) !? must_version("0.0.0")
+    assert(highest.name == "2.0.0")
+
+    let compatible = source.get_highest_version(vman:Mask.new("1.x")) !? must_version("0.0.0")
+    assert(compatible.name == "1.10.0")
+
+    let missing: ?vman:Version = source.get_highest_version(vman:Mask.new("3.x")) !? null
+    assert(!isset(missing))
+}
+

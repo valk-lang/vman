@@ -1,5 +1,8 @@
 
 SRC=$(wildcard src/*.valk)
+TEST_SRC=$(wildcard tests/src/*.valk)
+TEST_CONFIG=tests/valk.json
+TEST_BIN=debug/vman-tests
 VERSION=0.0.3
 DEFS=--def "VERSION=$(VERSION)"
 # vc=/opt/valk/0.0.7/valk
@@ -17,14 +20,15 @@ dev: $(SRC)
 win: $(SRC)
 	$(vc) build src/*.valk -o /mnt/c/www/vman.exe $(DEFS) --target win-x64
 
-test: vman
-	$(vc) build debug/example.valk -o debug/example .
-	./debug/example
+test: $(SRC) $(TEST_SRC) $(TEST_CONFIG)
+	mkdir -p debug
+	$(vc) build tests -o $(TEST_BIN) $(DEFS) --test
+	./$(TEST_BIN)
 
 clean:
-	rm -f ./vman
+	rm -f ./vman $(TEST_BIN)
 
-.PHONY: clean
+.PHONY: clean test
 
 # Build dists
 
@@ -58,4 +62,3 @@ dist-win:
 	cd ./dists/win-x64/ && tar -czf  ../vman-win-x64.tar.gz $(PACK_FILES_WIN)
 
 dist-all: dist-linux-x64 dist-macos-x64 dist-macos-arm64 dist-win
-

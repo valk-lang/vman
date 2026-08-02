@@ -1,0 +1,72 @@
+
+use vman
+use valk:fs
+use valk:json
+
+@ignore_access
+
+test "Project: validates package aliases" {
+    assert(vman:is_valid_pkg_name("package"))
+    assert(vman:is_valid_pkg_name("package_2"))
+    assert(vman:is_valid_pkg_name("_private"))
+    assert(!vman:is_valid_pkg_name(""))
+    assert(!vman:is_valid_pkg_name("2package"))
+    assert(!vman:is_valid_pkg_name("package-name"))
+    assert(!vman:is_valid_pkg_name("package.name"))
+}
+
+synctest "Project: persists dependency configuration" {
+    let debug_dir = fs:add(fs:cwd(), "debug")
+    if !fs:is_dir(debug_dir) : fs:mkdir(debug_dir) ! {
+        assert(false)
+        return
+    }
+
+    let config_path = fs:add(debug_dir, "project-config-test.json")
+    defer fs:delete(config_path) _
+
+    let config: json:Value = json:new_object()
+    let project = vman:Project {
+        dir: debug_dir
+        vendor_dir: fs:add(debug_dir, "vendor")
+        config_path: config_path
+        config: config
+    }
+    let source = vman:Source {
+        type: vman:SRC.github
+        name: "github.com.valk-lang.pkg-example"
+        user_name: "valk-lang"
+        repo_name: "pkg-example"
+    }
+    let pkg = vman:Package {
+        project: project
+        name: "github.com/valk-lang/pkg-example"
+        dot_name: source.name
+        id: fs:add(source.name, "1.2.3")
+        pkg_dir: ""
+        ver_dir: ""
+        repo_dir: ""
+        src: source
+        ver: must_version("1.2.3")
+        mask: vman:Mask.new("1.2.x")
+    }
+
+    project.add_pkg_to_config(pkg, "example")
+
+    let dependency = project.config.get("dependencies").get("example")
+    assert(dependency.get("src").string() == pkg.name)
+    assert(dependency.get("version").string() == "1.2.3")
+    assert(dependency.get("update").string() == "1.2.x")
+
+    let written: json:Value = json:decode(fs:read(config_path) !? "") !? json:new_object()
+    assert(written.get("dependencies").get("example").get("src").string() == pkg.name)
+
+    pkg.ver = must_version("1.2.4")
+    pkg.mask = null
+    project.add_pkg_to_config(pkg, "example")
+
+    let updated = project.config.get("dependencies").get("example")
+    assert(updated.get("version").string() == "1.2.4")
+    assert(!updated.has("update"))
+}
+
