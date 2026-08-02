@@ -57,7 +57,7 @@ fn download_version(v: String, to_path: String) {
 
     if fs:exists(to_path) : return
 
-    let url = cdn_host() + "/releases/valk/valk-" + v + "-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
+    let url = cdn_host() + "/releases/valk/" + v + "/valk-" + v + "-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
 
     println("# Downloading: " + url)
 
