@@ -52,7 +52,7 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 ## vman clean packages
 
 - if inside a project with a config
--- delete every ./vendor/{pkg}/{version} that's not used according to the config
+-- delete every ./vendor/{pkg}/{version} that's not found in the config dependencies
 -- delete every folder in ./vendor that's empty
 
 ## vman clean cache
@@ -64,4 +64,8 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 
 note: Do not document this command in the -h/--help output
 
+- check if version is the current used version
 - Removes directory if exists: ~/.vman/versions/{version}
+- if it was current used
+-- find highest version in ~/.vman/versions/*
+--- if a version was found: vman use {new-version}

@@ -1,21 +1,86 @@
 use valk:fs
 
-fn cmd_clean() {
-    // Clear the cache (including the install git repos)
-    let cache = cache_dir()
-    if fs:exists(cache) : fs:delete_recursive(cache)
+fn cmd_clean(args: Array[String]) {
+    let sub = args.get(0) ! error("vman clean requires a subcommand: 'packages' or 'cache'")
 
-    // Remove downloaded files
-    let dir = downloads_dir()
-    fs:delete_recursive(dir)
-    fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
+    if sub == "packages" {
+        // If inside a project with a config, clean unused vendor packages
+        let config_path = Project.get_config_path()
+        if fs:exists(config_path) {
+            let p = Project.new()
+            p.clean_vendor()
+            println("# Cleaned vendor packages")
+        } else {
+            println("# Not inside a project, nothing to clean")
+        }
+    } else if sub == "cache" {
+        // Clear the http request cache
+        let cache_path = Cache.path()
+        if fs:exists(cache_path) : fs:delete(cache_path) _
+        // Remove downloaded files
+        let dir = downloads_dir()
+        fs:delete_recursive(dir)
+        fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
+        println("# Cleaned cache")
+    } else {
+        error("Unknown clean subcommand: '" + sub + "'. Use 'packages' or 'cache'")
+    }
+}
 
-    // If inside a project with a config, clean unused vendor packages
-    let config_path = Project.get_config_path()
-    if fs:exists(config_path) {
-        let p = Project.new()
-        p.clean_vendor()
+fn cmd_unuse(args: Array[String], options: Array[String]) {
+    let version = args.get(0) ! help(1)
+
+    let was_current = current_used_version() == version
+
+    // Remove the installed toolchain version directory if it exists
+    let dir = version_dir(version)
+    if fs:is_dir(dir) {
+        fs:delete_recursive(dir)
+        println("# Removed version: " + version)
+    } else {
+        println("# Version not installed: " + version)
     }
 
-    println("# Cleaned")
+    // If it was the active version, switch to the highest remaining one
+    if was_current {
+        let highest = highest_installed_version()
+        if isset(highest) {
+            cmd_use(Array[String]{ highest }, Array[String]{})
+        }
+    }
+}
+
+fn current_used_version() ?String {
+    #if OS == win
+    let link = bin_dir() + "valk.bat"
+    #else
+    let link = bin_dir() + valk_exe()
+    #end
+    if !fs:exists(link) : return null
+
+    let target = fs:realpath(link)
+    if !target.starts_with(versions_dir()) : return null
+
+    let v = Version.new(fs:basename(fs:dir_of(target))) ! return null
+    return v.name
+}
+
+fn highest_installed_version() ?String {
+    let dirs = fs:files_in(versions_dir(), false, false, true)
+    let high : ?Version = null
+    let high_name = ""
+    each dirs as dir {
+        let v = Version.new(fs:basename(dir)) ! continue
+        if isset(high) {
+            if v > high {
+                high = v
+                high_name = v.name
+            }
+        } else {
+            high = v
+            high_name = v.name
+        }
+    }
+    if isset(high) : return high_name
+    return null
 }

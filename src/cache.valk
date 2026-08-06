@@ -8,7 +8,7 @@ class Cache {
     data: json:Value
 
     static fn path() String {
-        return fs:add(cache_dir(), "cache.json")
+        return fs:add(vman_dir(), "cache.json")
     }
     static fn get() Cache {
         let c = cache

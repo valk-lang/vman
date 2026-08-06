@@ -69,8 +69,8 @@ fn link_version(version_dir: String) {
     // Check target
     if !fs:exists(to) : error("Tried to create a symbolic link to a file that does not exist: " + to)
 
-    // Remove existing link
-    if fs:exists(link) : fs:delete(link) ! warn("Failed to remove previous link: " + link)
+    // Remove existing link (including a dangling one left behind by a removed version)
+    fs:delete(link) ! warn("Failed to remove previous link: " + link)
 
     #if OS == win
     // Create bat file

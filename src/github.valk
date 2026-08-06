@@ -15,7 +15,7 @@ fn github_req(method: String, path: String) json:Value !GithubError {
     let when = req.get("when").int().to(uint)
     let body = req.get("body").string()
     let now = time:mstime()
-    if now - when < 10 * 60 * 1000 && !body.is_empty() {
+    if now - when < 5 * 60 * 1000 && !body.is_empty() {
         let data = json:decode(body) !? null
         if isset(data) {
             return data

@@ -105,6 +105,16 @@ class Project {
             // Set/update the resolved version & hash in the config
             dep = dep.set("current", json:new_string(pkg.ver.name))
             dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
+            // Record the "version" mask if it was used and is missing
+            let ver_mask = dep.get("version").string()
+            if ver_mask.is_empty() {
+                let m = pkg.mask
+                if isset(m) {
+                    dep = dep.set("version", json:new_string(m.name))
+                } else {
+                    dep = dep.remove("version")
+                }
+            }
             deps = deps.set(key, dep)
 
             // Install if the package-dir is missing
@@ -132,8 +142,8 @@ class Project {
         each pkg_dirs as pkg_dir {
             let pkg_name = fs:basename(pkg_dir)
 
-            // Find the dependency whose src matches this vendored package
-            let used_version = ""
+            // Collect every version current in the config that maps to this package
+            let used = Array[String]{}
             each deps.values.keys() as key {
                 let dep = deps.get(key) ! {
                     continue
@@ -141,23 +151,23 @@ class Project {
                 let src = dep.get("src").string()
                 if src.is_empty() : continue
                 if Source.new(src).assoc_name() == pkg_name {
-                    used_version = dep.get("current").string()
+                    let cur = dep.get("current").string()
+                    if !cur.is_empty() : used.append(cur)
                 }
             }
 
             // No dependency uses this package -> delete the whole directory
-            if used_version.is_empty() {
+            if used.length == 0 {
                 fs:delete_recursive(pkg_dir)
                 continue
             }
 
-            // Protect the used version directory (and its parent)
-            protected.append(fs:add(pkg_dir, used_version))
-
-            // Delete version sub-directories that aren't the used version
+            // Delete version sub-directories that aren't a used version
             let versions = fs:files_in(pkg_dir, false, false, true)
             each versions as ver_dir {
-                if fs:basename(ver_dir) != used_version {
+                if used.contains(fs:basename(ver_dir)) {
+                    protected.append(ver_dir)
+                } else {
                     fs:delete_recursive(ver_dir)
                 }
             }
