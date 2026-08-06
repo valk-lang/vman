@@ -22,6 +22,20 @@ test "Source: parses GitHub package names" {
     assert(source.user_name == "valk-lang")
     assert(source.repo_name == "pkg-example")
     assert(source.to(String) == source.name)
+    assert(source.platform() == "github")
+    assert(source.assoc_name() == "github-valk-lang-pkg-example")
+}
+
+test "Source: validates source components" {
+    assert(main:is_valid_source_component("valk-lang"))
+    assert(main:is_valid_source_component("pkg_example"))
+    assert(main:is_valid_source_component("pkg.example"))
+    assert(main:is_valid_source_component("a1"))
+    assert(!main:is_valid_source_component(""))
+    assert(!main:is_valid_source_component("valk lang"))
+    assert(!main:is_valid_source_component("pkg/example"))
+    assert(!main:is_valid_source_component("pkg@example"))
+    assert(main:is_valid_source_component("a"))
 }
 
 test "Source: validates package names" {

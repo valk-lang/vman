@@ -38,3 +38,59 @@ test "Versions: resolves named valk channels" {
     assert(main:resolve_valk_version(versions, "nightly") == "0.2.6")
     assert(main:resolve_valk_version(versions, "0.2.2") == "0.2.2")
 }
+
+test "Versions: is_valid_version accepts semantic versions" {
+    assert(main:is_valid_version("1.2.3"))
+    assert(main:is_valid_version("v1.2.3"))
+    assert(main:is_valid_version("0.0.0"))
+    assert(main:is_valid_version("10.20.30"))
+    assert(!main:is_valid_version(""))
+    assert(!main:is_valid_version("1"))
+    assert(!main:is_valid_version("1.2"))
+    assert(!main:is_valid_version("1.2.3.4"))
+    assert(!main:is_valid_version("1.x.3"))
+    assert(!main:is_valid_version("latest"))
+}
+
+test "Versions: vman_is_up_to_date compares correctly" {
+    let stable = main:Versions {
+        vman_latest: "0.1.0"
+        vman_current: "0.1.0"
+        valk: json:new_object()
+    }
+    assert(main:vman_is_up_to_date(stable))
+
+    let newer = main:Versions {
+        vman_latest: "0.1.0"
+        vman_current: "0.2.0"
+        valk: json:new_object()
+    }
+    assert(main:vman_is_up_to_date(newer))
+
+    let older = main:Versions {
+        vman_latest: "0.2.0"
+        vman_current: "0.1.0"
+        valk: json:new_object()
+    }
+    assert(!main:vman_is_up_to_date(older))
+
+    let equal_v = main:Versions {
+        vman_latest: "v0.1.0"
+        vman_current: "0.1.0"
+        valk: json:new_object()
+    }
+    assert(main:vman_is_up_to_date(equal_v))
+}
+
+test "Versions: release_channel resolves and falls back to default" {
+    let data = json:decode("{\"vman\":{\"default\":\"0.0.1\",\"latest\":\"0.0.2\"},\"valk\":{\"default\":\"0.2.3\",\"dev\":\"0.2.5\"}}") !? json:new_object()
+
+    let latest: ?String = main:release_channel(data, "vman", "latest")
+    if isset(latest) {
+        assert(latest == "0.0.2")
+    } else {
+        assert(false)
+    }
+    assert(!isset(main:release_channel(data, "vman", "nightly")))
+    assert(main:release_channel_or_default(data, "vman", "nightly") == "0.0.1")
+}
