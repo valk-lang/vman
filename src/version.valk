@@ -13,8 +13,9 @@ class Version {
         let v = name
         if v.starts_with("v") || v.starts_with("V") : v = v.part(1, v.length)
 
+        // Store the normalized (v-stripped) value so every use is v-free
         let res = Version {
-            name: name
+            name: v
         }
 
         let parts = v.split(".")

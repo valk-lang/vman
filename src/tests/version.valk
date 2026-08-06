@@ -23,7 +23,7 @@ test "Version: parses semantic versions" {
     assert(prefixed.n1 == 10)
     assert(prefixed.n2 == 20)
     assert(prefixed.n3 == 30)
-    assert(prefixed.name == "v10.20.30")
+    assert(prefixed.name == "10.20.30")
 }
 
 test "Version: rejects invalid syntax" {
