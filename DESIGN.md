@@ -7,6 +7,7 @@ DO NOT MODIFY THIS FILE
 
 - Version syntax is `{0-9}.{0-9}{0-9}`, it can have a `v` in front of it.
 - Version strings should always be converted to Version objects, this removes the `v` character for us, which is what we want
+- Http requests should be cached for 5 minutes in ~/.vman/cache.json in order not to overload 3rd party web servers
 
 ## Definitions
 
@@ -18,12 +19,12 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - loops "dependencies"
 -- if src is directory : skip
 -- reads "current" & "current_hash"
---- if no "current" or no "current_hash", look at "version" mask, look up latest version (&hash) that matches the mask
+--- if no "current" or no "current_hash", look at "version" mask (error if invalid mask), look up latest version (&hash) that matches the mask (error if no versions match)
 -- now that we have our version & hash
 --- validate version syntax
---- set/update "current" & "current_hash" in config
+--- set/update "current" & "current_hash" in config (also set "version" if missing)
 --- check if version is installed by checking if the 'pacakge-dir' exists
---- if not, clone repo to ~/.vman/repos, checkout the hash, copy files to the 'package-dir'
+--- if not, clone repo to ~/.vman/repos, checkout the hash (error if doesnt exist), copy files to the 'package-dir'
 - save config
 - success msg
 
@@ -48,17 +49,19 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 
 - Removes the `dependencies.{name}` object from the config
 
-## vman clean
+## vman clean packages
 
-- Clears cache
-- Remove files from ~/.vman/downloads
 - if inside a project with a config
 -- delete every ./vendor/{pkg}/{version} that's not used according to the config
 -- delete every folder in ./vendor that's empty
+
+## vman clean cache
+
+- Clears ~/.vman/cache.json
+- Remove files from ~/.vman/downloads
 
 ## vman unuse {version}
 
 note: Do not document this command in the -h/--help output
 
-- Removes ~/.vman/versions/{version}
-- runs: vman clean
+- Removes directory if exists: ~/.vman/versions/{version}

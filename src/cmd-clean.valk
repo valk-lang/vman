@@ -1,8 +1,21 @@
 use valk:fs
 
 fn cmd_clean() {
+    // Clear the cache (including the install git repos)
+    let cache = cache_dir()
+    if fs:exists(cache) : fs:delete_recursive(cache)
+
+    // Remove downloaded files
     let dir = downloads_dir()
     fs:delete_recursive(dir)
     fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
-    println("# Cleared downloaded Valk archives")
+
+    // If inside a project with a config, clean unused vendor packages
+    let config_path = Project.get_config_path()
+    if fs:exists(config_path) {
+        let p = Project.new()
+        p.clean_vendor()
+    }
+
+    println("# Cleaned")
 }

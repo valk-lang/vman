@@ -119,6 +119,64 @@ class Project {
 
         println("# All dependencies have been installed")
     }
+
+    fn clean_vendor() {
+        let deps = this.config.get("dependencies").object()
+
+        // Directories that are used by the config and must be preserved
+        let protected = Array[String]{}
+
+        // Map vendored package dir by its assoc name, used version
+        let pkg_dirs = fs:files_in(this.vendor_dir, false, false, true)
+
+        each pkg_dirs as pkg_dir {
+            let pkg_name = fs:basename(pkg_dir)
+
+            // Find the dependency whose src matches this vendored package
+            let used_version = ""
+            each deps.values.keys() as key {
+                let dep = deps.get(key) ! {
+                    continue
+                }
+                let src = dep.get("src").string()
+                if src.is_empty() : continue
+                if Source.new(src).assoc_name() == pkg_name {
+                    used_version = dep.get("current").string()
+                }
+            }
+
+            // No dependency uses this package -> delete the whole directory
+            if used_version.is_empty() {
+                fs:delete_recursive(pkg_dir)
+                continue
+            }
+
+            // Protect the used version directory (and its parent)
+            protected.append(fs:add(pkg_dir, used_version))
+
+            // Delete version sub-directories that aren't the used version
+            let versions = fs:files_in(pkg_dir, false, false, true)
+            each versions as ver_dir {
+                if fs:basename(ver_dir) != used_version {
+                    fs:delete_recursive(ver_dir)
+                }
+            }
+        }
+
+        // Delete every empty folder under ./vendor that isn't used by the config
+        remove_empty_dirs(this.vendor_dir, protected)
+    }
+}
+
+fn remove_empty_dirs(dir: String, protected: Array[String]) {
+    let subdirs = fs:files_in(dir, false, false, true)
+    each subdirs as sub {
+        if protected.contains(sub) : continue
+        remove_empty_dirs(sub, protected)
+        if fs:is_dir(sub) && fs:files_in(sub).length == 0 {
+            fs:rmdir(sub) _
+        }
+    }
 }
 
 fn resolve_dep_pkg(project: Project, name: String, installed: String, hash: String, version: String) Package {
