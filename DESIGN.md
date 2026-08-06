@@ -3,6 +3,11 @@
 
 DO NOT MODIFY THIS FILE
 
+## Guidelines
+
+- Version syntax is `{0-9}.{0-9}{0-9}`, it can have a `v` in front of it.
+- Version strings should always be converted to Version objects, this removes the `v` character for us, which is what we want
+
 ## Definitions
 
 package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./vendor/github-someuser-somepkg/0.0.1)
