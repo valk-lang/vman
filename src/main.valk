@@ -19,6 +19,8 @@ fn main(args: Array[String]) {
         Project.init_config()
     } else if action == "install" {
         cmd_package_install(args, options)
+    } else if action == "update" {
+        cmd_package_update()
     } else if action == "remove" {
         cmd_package_remove(args, options)
     } else if action == "self-update" {

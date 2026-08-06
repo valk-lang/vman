@@ -53,20 +53,21 @@ class Project {
 
         let deps = this.config.get("dependencies")
         let exists = deps.has(name)
-
         let dep = deps.get(name)
         if exists {
-            let n = dep.get("src").string()
-            if n != pkg.name : error("Failed to add package to config. Name already used: " + name)
+            if dep.get("src").string() != pkg.name : error("Failed to add package to config. Name already used: " + name)
         }
+
+        dep = dep.remove("installed").remove("installed_hash").remove("update")
         dep = dep.set("src", json:new_string(pkg.name))
-        dep = dep.set("version", json:new_string(pkg.ver.name))
+        dep = dep.set("current", json:new_string(pkg.ver.name))
+        dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
 
         let mask = pkg.mask
         if isset(mask) {
-            dep = dep.set("update", json:new_string(mask.name))
+            dep = dep.set("version", json:new_string(mask.name))
         } else {
-            dep = dep.remove("update")
+            dep = dep.remove("version")
         }
 
         deps = deps.set(name, dep)
@@ -76,29 +77,57 @@ class Project {
     }
 
     fn install_packages() {
-        let deps = this.config.get("dependencies").object().values
+        let deps = this.config.get("dependencies").object()
 
-        if deps.length == 0 {
+        if deps.length() == 0 {
             println("# This project has no dependencies")
             return
         }
 
-        each deps as dep {
-            let name = dep.get("src").string()
-            let v = dep.get("version").string()
-            
-            if name.is_empty() : error("Valk.json invalid dependency 'src' -> '%name'")
-            if v.is_empty() : error("Valk.json invalid dependency 'version' -> '%v'")
+        each deps.values.keys() as key {
+            let dep = deps.get(key) ! {
+                continue
+            }
 
-            let pkg = Package.init(this, name, v)
+            let name = dep.get("src").string()
+            if name.is_empty() : error("Valk.json invalid dependency 'src'")
+
+            // Local directory dependencies are always present
+            if fs:is_dir(name) : continue
+
+            let installed = dep.get("current").string()
+            let hash = dep.get("current_hash").string()
+
+            let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string())
+
+            if !is_valid_version(pkg.ver.name) : error("Valk.json invalid version: " + pkg.ver.name)
+
+            // Set/update the resolved version & hash in the config
+            dep = dep.set("current", json:new_string(pkg.ver.name))
+            dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
+            deps = deps.set(key, dep)
+
+            // Install if the package-dir is missing
             if !pkg.installed() {
-                println("> Installing: %name | %v")
+                println("> Installing: %name | %{pkg.ver.name}")
                 pkg.install()
             }
         }
 
+        this.config = this.config.set("dependencies", deps)
+        fs:write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+
         println("# All dependencies have been installed")
     }
+}
+
+fn resolve_dep_pkg(project: Project, name: String, installed: String, hash: String, version: String) Package {
+    if !installed.is_empty() && !hash.is_empty() {
+        return Package.from_config(project, name, installed, hash)
+    }
+    let requested : ?String = null
+    if !version.is_empty() : requested = version
+    return Package.init(project, name, requested)
 }
 
 fn is_valid_pkg_name(n: String) bool {

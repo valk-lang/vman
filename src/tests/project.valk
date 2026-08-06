@@ -50,22 +50,29 @@ synctest "Project: persists dependency configuration" {
         ver: must_version("1.2.3")
         mask: main:Mask.new("1.2.x")
     }
+    pkg.ver.hash = "0123456789abcdef0123456789abcdef01234567"
 
     project.add_pkg_to_config(pkg, "example")
 
     let dependency = project.config.get("dependencies").get("example")
     assert(dependency.get("src").string() == pkg.name)
-    assert(dependency.get("version").string() == "1.2.3")
-    assert(dependency.get("update").string() == "1.2.x")
+    assert(dependency.get("current").string() == "1.2.3")
+    assert(dependency.get("current_hash").string() == "0123456789abcdef0123456789abcdef01234567")
+    assert(dependency.get("version").string() == "1.2.x")
+    assert(!dependency.has("installed"))
+    assert(!dependency.has("update"))
 
     let written: json:Value = json:decode(fs:read(config_path) !? "") !? json:new_object()
-    assert(written.get("dependencies").get("example").get("src").string() == pkg.name)
+    assert(written.get("dependencies").get("example").get("current").string() == "1.2.3")
+    assert(written.get("dependencies").get("example").get("current_hash").string() == "0123456789abcdef0123456789abcdef01234567")
 
     pkg.ver = must_version("1.2.4")
+    pkg.ver.hash = "abcdef0123456789abcdef0123456789abcdef0"
     pkg.mask = null
     project.add_pkg_to_config(pkg, "example")
 
     let updated = project.config.get("dependencies").get("example")
-    assert(updated.get("version").string() == "1.2.4")
-    assert(!updated.has("update"))
+    assert(updated.get("current").string() == "1.2.4")
+    assert(updated.get("current_hash").string() == "abcdef0123456789abcdef0123456789abcdef0")
+    assert(!updated.has("version"))
 }

@@ -25,14 +25,7 @@ class Package {
         let ver : ?Version = null
         let mask : ?Mask = null
         if !isset(version) {
-            // Generate mask based on latest version
-            let high = src.get_highest_version(null) !? null
-            if isset(high) {
-                ver = high
-                mask = Mask.new(high.name)
-                mask.n3_any = true
-                mask.name = mask.name.rtrim(mask.n3) + "x"
-            }
+            ver = src.get_highest_version(null) !? null
         } else {
             if Mask.is_mask(version) : mask = Mask.new(version)
             if !isset(mask) && version != "_" : ver = Version.new(version) ! error("Invalid version syntax: " + version)
@@ -49,8 +42,16 @@ class Package {
             }
         }
 
-        let pkg_dir = fs:add(project.vendor_dir, src.name)
-        if !fs:exists(pkg_dir) : fs:mkdir(pkg_dir) _
+        // Resolve the commit hash the version was tagged at
+        if ver.hash.is_empty() {
+            let vv = src.get_versions()
+            each vv as entry {
+                if entry.eq(ver) : ver.hash = entry.hash
+            }
+            if ver.hash.is_empty() : error("Package '%name' has no commit hash for version: " + ver.name)
+        }
+
+        let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())
         let ver_dir = fs:add(pkg_dir, ver.name)
 
         return Package {
@@ -67,6 +68,29 @@ class Package {
         }
     }
 
+    static fn from_config(project: Project, name: String, version: String, hash: String) Package {
+
+        let src = Source.new(name)
+        let ver = Version.new(version) ! error("Invalid version in config: " + version)
+        ver.hash = hash
+
+        let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())
+        let ver_dir = fs:add(pkg_dir, ver.name)
+
+        return Package {
+            project: project
+            name: name
+            dot_name: src.name
+            id: fs:add(src.name, ver.name)
+            pkg_dir: pkg_dir
+            ver_dir: ver_dir
+            repo_dir: fs:add(cache_repo_dir(), src.name)
+            src: src
+            ver: ver
+            mask: null
+        }
+    }
+
     fn installed() bool {
         return fs:exists(this.ver_dir)
     }
@@ -75,28 +99,25 @@ class Package {
         //
         let repo_dir = this.repo_dir
         let dest_dir = this.ver_dir
-        let vname = this.ver.name
+        let hash = this.ver.hash
+        if hash.is_empty() : error("Package '%{this.name}' has no commit hash to install")
 
         // Fetch
         let quoted_repo_dir = shell_quote(repo_dir)
         let cmd = "git -C %quoted_repo_dir fetch"
         let fetch_code, _ = core:exec(cmd)
         if fetch_code == 127 : error("Git is not installed")
-        if fetch_code != 0 : error("Failed to fetch latest package version: %cmd")
+        if fetch_code != 0 : error("Failed to fetch package repository: %cmd")
 
-        // Checkout version
-        cmd = "git -C %quoted_repo_dir checkout " + shell_quote(vname)
+        // Checkout commit
+        cmd = "git -C %quoted_repo_dir checkout " + shell_quote(hash)
         let checkout_code, _ = core:exec(cmd)
-        if checkout_code != 0 : error("Package version not found: %{this.ver.name}")
+        if checkout_code != 0 : error("Package commit not found: %hash")
 
-        // Pull
-        cmd = "git -C %quoted_repo_dir pull origin " + shell_quote(vname)
-        let pull_code, _ = core:exec(cmd)
-        if pull_code != 0 : error("Package version not found: %{this.ver.name}")
-
-        //
+        // Copy files to the version directory
         let files = fs:files_in(repo_dir, false)
-        if !fs:exists(dest_dir) : fs:mkdir(dest_dir) _
+        if !fs:exists(this.pkg_dir) : fs:mkdir(this.pkg_dir) ! error("Failed to create directory: " + this.pkg_dir)
+        if !fs:exists(dest_dir) : fs:mkdir(dest_dir) ! error("Failed to create directory: " + dest_dir)
         each files as file {
             let fn = fs:basename(file)
             if fn == ".git" : continue

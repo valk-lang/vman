@@ -7,6 +7,7 @@ fn help_intro_pkg_commands() {
     print("\n")
     println("  vman install         Install pacakages defined in the valk.json config");
     println("  vman install {pkg}   Install pacakage");
+    println("  vman update          Update pacakages to the latest matching version");
     println("  vman remove {pkg}    Remove pacakage");
 }
 
@@ -55,8 +56,15 @@ fn cmd_package_install(args: Array[String], options: Array[String]) {
 
         p.packages.set(pkg.id, pkg)
 
-        // Check if installed
-        if !pkg.installed() : pkg.install()
+        // Already installed?
+        if isset(install_version) && pkg.installed() {
+            if ansi:supported() : println("# Package already installed: " + pkg.id.to(String).ansi.green())
+            else : println("# Package already installed: " + pkg.id)
+            return
+        }
+
+        // Install
+        pkg.install()
 
         // Add to config
         p.add_pkg_to_config(pkg, alias)
@@ -68,6 +76,33 @@ fn cmd_package_install(args: Array[String], options: Array[String]) {
     }
 
     // Install all
+    p.install_packages()
+}
+
+fn cmd_package_update() {
+
+    // Project
+    let p = Project.new()
+
+    let deps = p.config.get("dependencies").object()
+    if deps.length() == 0 {
+        println("# This project has no dependencies")
+        return
+    }
+
+    // Remove the pinned version so install re-resolves the latest matching the "version" mask
+    each deps.values.keys() as key {
+        let dep = deps.get(key) ! {
+            continue
+        }
+        dep = dep.remove("current").remove("current_hash")
+        deps = deps.set(key, dep)
+    }
+
+    p.config = p.config.set("dependencies", deps)
+    fs:write(p.config_path, p.config.encode(true)) ! error("Failed to save file: " + p.config_path)
+
+    // Run the install logic
     p.install_packages()
 }
 
