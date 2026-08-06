@@ -63,6 +63,7 @@ fn help(code: i32) $exit {
     println("  vman self-update     Update vman itself");
     println("  vman clean packages  Remove unused vendor packages");
     println("  vman clean cache     Clear the cache and downloads");
+    println("  vman clean repos     Remove cloned package repos");
     println("  vman version         Show vman version");
     println("  vman {command} -h    Show help for a command");
 

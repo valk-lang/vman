@@ -60,6 +60,10 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - Clears ~/.vman/cache.json
 - Remove files from ~/.vman/downloads
 
+## vman clean repos
+
+- delete every folder in ~/.vman/repos
+
 ## vman unuse {version}
 
 note: Do not document this command in the -h/--help output
@@ -69,3 +73,4 @@ note: Do not document this command in the -h/--help output
 - if it was current used
 -- find highest version in ~/.vman/versions/*
 --- if a version was found: vman use {new-version}
+- if current was null : delete symlink

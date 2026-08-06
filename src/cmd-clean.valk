@@ -22,15 +22,21 @@ fn cmd_clean(args: Array[String]) {
         fs:delete_recursive(dir)
         fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
         println("# Cleaned cache")
+    } else if sub == "repos" {
+        // Remove every cloned package repository
+        let repos_dir = cache_repo_dir()
+        fs:delete_recursive(repos_dir)
+        fs:mkdir(repos_dir) ! error("Failed to recreate repos directory: " + repos_dir)
+        println("# Cleaned repos")
     } else {
-        error("Unknown clean subcommand: '" + sub + "'. Use 'packages' or 'cache'")
+        error("Unknown clean subcommand: '" + sub + "'. Use 'packages', 'cache' or 'repos'")
     }
 }
 
 fn cmd_unuse(args: Array[String], options: Array[String]) {
     let version = args.get(0) ! help(1)
 
-    let was_current = current_used_version() == version
+    let current = current_used_version()
 
     // Remove the installed toolchain version directory if it exists
     let dir = version_dir(version)
@@ -41,12 +47,10 @@ fn cmd_unuse(args: Array[String], options: Array[String]) {
         println("# Version not installed: " + version)
     }
 
-    // If it was the active version, switch to the highest remaining one
-    if was_current {
-        let highest = highest_installed_version()
-        if isset(highest) {
-            cmd_use(Array[String]{ highest }, Array[String]{})
-        }
+    // If it was the current version, or the current could not be determined,
+    // remove the symlink (the target is now gone or unknown)
+    if !isset(current) || current == version {
+        remove_current_link()
     }
 }
 
@@ -56,7 +60,6 @@ fn current_used_version() ?String {
     #else
     let link = bin_dir() + valk_exe()
     #end
-    if !fs:exists(link) : return null
 
     let target = fs:realpath(link)
     if !target.starts_with(versions_dir()) : return null
@@ -65,22 +68,12 @@ fn current_used_version() ?String {
     return v.name
 }
 
-fn highest_installed_version() ?String {
-    let dirs = fs:files_in(versions_dir(), false, false, true)
-    let high : ?Version = null
-    let high_name = ""
-    each dirs as dir {
-        let v = Version.new(fs:basename(dir)) ! continue
-        if isset(high) {
-            if v > high {
-                high = v
-                high_name = v.name
-            }
-        } else {
-            high = v
-            high_name = v.name
-        }
-    }
-    if isset(high) : return high_name
-    return null
+fn remove_current_link() {
+    #if OS == win
+    let link = bin_dir() + "valk.bat"
+    #else
+    let link = bin_dir() + valk_exe()
+    #end
+    // unlink removes the symlink itself, even when its target is gone (dangling)
+    fs:delete(link) ! warn("Failed to remove link: " + link)
 }
