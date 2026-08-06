@@ -70,7 +70,4 @@ note: Do not document this command in the -h/--help output
 
 - check if version is the current used version
 - Removes directory if exists: ~/.vman/versions/{version}
-- if it was current used
--- find highest version in ~/.vman/versions/*
---- if a version was found: vman use {new-version}
-- if current was null : delete symlink
+- if it was the current or current was null : delete symlink
