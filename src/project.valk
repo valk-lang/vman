@@ -150,6 +150,8 @@ class Project {
                 }
                 let src = dep.get("src").string()
                 if src.is_empty() : continue
+                // Local directory dependencies have no vendored package dir
+                if fs:is_dir(src) : continue
                 if Source.new(src).assoc_name() == pkg_name {
                     let cur = dep.get("current").string()
                     if !cur.is_empty() : used.append(cur)
