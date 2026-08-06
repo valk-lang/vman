@@ -5,19 +5,19 @@ use valk:fs
 fn help_intro_pkg_commands() {
     println(emo("📦", "#") + " Package commands");
     print("\n")
-    println("  vman install         Install pacakages defined in the valk.json config");
-    println("  vman install {pkg}   Install pacakage");
-    println("  vman update          Update pacakages to the latest matching version");
-    println("  vman remove {pkg}    Remove pacakage");
+    println("  vman install         Install packages defined in the valk.json config");
+    println("  vman install {pkg}   Install package");
+    println("  vman update          Update packages to the latest matching version");
+    println("  vman remove {pkg}    Remove package");
 }
 
 fn help_pkg_command(code: i32) $exit {
     println(emo("📦", "#") + " Package commands");
     print("\n")
-    println("# Install pacakages defined in the valk.json config");
+    println("# Install packages defined in the valk.json config");
     println("> vman install");
     print("\n")
-    println("# Install a pacakage");
+    println("# Install a package");
     println("> vman install {pkg} [{version}] [{alias}]");
     print("\n")
     println("- Example: Install latest version of a package");
@@ -29,7 +29,7 @@ fn help_pkg_command(code: i32) $exit {
     println("- Example: Install latest version that matches 0.3.x");
     println("> vman install github.com/valk-lang/pkg-example 0.3.x");
     print("\n")
-    println("# Remove a pacakage");
+    println("# Remove a package");
     println("> vman remove {pkg}");
     print("\n")
     exit(code)
