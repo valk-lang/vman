@@ -43,3 +43,22 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - loops "dependencies"
 -- removes "current" & "current_hash"
 - now run logic of: vman install
+
+## vman remove {name}
+
+- Removes the `dependencies.{name}` object from the config
+
+## vman clean
+
+- Clears cache
+- Remove files from ~/.vman/downloads
+- if inside a project with a config
+-- delete every ./vendor/{pkg}/{version} that's not used according to the config
+-- delete every folder in ./vendor that's empty
+
+## vman unuse {version}
+
+note: Do not document this command in the -h/--help output
+
+- Removes ~/.vman/versions/{version}
+- runs: vman clean
