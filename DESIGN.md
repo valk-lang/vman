@@ -97,5 +97,5 @@ note: Do not document this command in the -h/--help output
 ## vman fetch [true (ignore_cache)]
 
 - fetch function (argument: ignore_cache: bool (default false))
--- fetch versions.json from CDN (skip request cache if !allow_cache)
+-- fetch versions.json from CDN (skip request cache if ignore_cache)
 -- store versions in ~/.vman/versions.json

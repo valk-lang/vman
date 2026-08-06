@@ -31,6 +31,10 @@ fn main(args: Array[String]) {
         cmd_unuse(args, options)
     } else if action == "version" {
         println(VERSION)
+    } else if action == "fetch" {
+        let arg0 = args.get(0) !? ""
+        fetch(arg0 == "true")
+        println("# Saved versions to " + versions_json_path())
     } else {
         println("Unknown command: '" + action + "'")
         exit(1)
