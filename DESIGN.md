@@ -71,3 +71,31 @@ note: Do not document this command in the -h/--help output
 - check if version is the current used version
 - Removes directory if exists: ~/.vman/versions/{version}
 - if it was the current or current was null : delete symlink
+
+## vman use [{version}]
+
+- resolve the requested version:
+-- if no version specified, read "use" from ./valk.json (error if no config or no "use")
+-- if it's a named-version -> vman fetch (ignore_cache: false) -> resolve named-version from ~/.vman/versions.json (error if not found)
+-- otherwise, if it's a valid version string, use it as-is (error if it's neither a known channel nor valid version syntax)
+- validate version syntax
+- check for a new vman version and print a notice (~/.vman/vman.json update check)
+- if not installed: print installing msg, download the valk archive from https://files.valk-cdn.dev/releases/valk/{version}/... (skip download if the archive already exists in ~/.vman/downloads), then unzip into ~/.vman/versions/{version}
+- create the symbolic link ~/.vman/bin/valk -> ~/.vman/versions/{version}/valk (remove any existing link, including dangling ones)
+- success msg
+
+## vman self-update
+
+- fetch/reuse the cached vman versions (~/.vman/versions.json)
+- if already up-to-date (current >= latest) : print up-to-date msg and stop
+- print downloading msg
+- download http://cdn/.../vman-{os}-{arch}.tar.gz to a temp file in ~/.vman/downloads (error on non-200)
+- move temp file to ~/.vman/downloads/vman.tar.gz
+- unpack the tarball into ~/.vman/ (overwrites the current vman install)
+- print up-to-date msg
+
+## vman fetch [true (ignore_cache)]
+
+- fetch function (argument: ignore_cache: bool (default false))
+-- fetch versions.json from CDN (skip request cache if !allow_cache)
+-- store versions in ~/.vman/versions.json
