@@ -38,13 +38,12 @@ fn downloads_dir() String {
     return dir + div()
 }
 
-fn cache_dir() String {
-    let dir = fs:add(vman_dir(), "cache")
+fn cache_repo_dir() String {
+    let dir = fs:add(vman_dir(), "repos")
     if !fs:is_dir(dir) : fs:mkdir(dir) ! error("Failed to create directory: " + dir)
     return dir
 }
-fn cache_repo_dir() String {
-    let dir = fs:add(cache_dir(), "repos")
-    if !fs:is_dir(dir) : fs:mkdir(dir) ! error("Failed to create directory: " + dir)
-    return dir
+
+fn versions_json_path() String {
+    return fs:add(vman_dir(), "versions.json")
 }

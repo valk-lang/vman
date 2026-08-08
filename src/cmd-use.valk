@@ -27,10 +27,14 @@ fn cmd_use(args: Array[String], options: Array[String]) {
 
     if options.contains("-h") || options.contains("--help") : help_cmd_use(0)
 
-    let vv = get_versions()
-
     let requested = args.get(0) !? get_version_from_config()
-    let version = resolve_valk_version(vv, requested)
+    let version = requested
+    let vv = get_versions()
+    if !is_valid_version(requested) {
+        fetch(false)
+        vv = get_versions()
+        version = resolve_valk_version(vv, requested)
+    }
 
     if !is_valid_version(version) : error("Invalid version syntax: '" + version + "'")
 
@@ -69,8 +73,8 @@ fn link_version(version_dir: String) {
     // Check target
     if !fs:exists(to) : error("Tried to create a symbolic link to a file that does not exist: " + to)
 
-    // Remove existing link
-    if fs:exists(link) : fs:delete(link) ! warn("Failed to remove previous link: " + link)
+    // Remove existing link (including a dangling one left behind by a removed version)
+    fs:delete(link) ! warn("Failed to remove previous link: " + link)
 
     #if OS == win
     // Create bat file

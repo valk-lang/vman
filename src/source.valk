@@ -35,6 +35,15 @@ class Source {
         return this.name
     }
 
+    fn platform() String {
+        if this.type == SRC.github : return "github"
+        return "unknown"
+    }
+
+    fn assoc_name() String {
+        return this.platform() + "-" + this.user_name + "-" + this.repo_name
+    }
+
     fn get_versions() Array[Version] {
         let vv = this.versions
         if isset(vv) : return vv

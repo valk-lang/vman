@@ -1,7 +1,6 @@
 
 use valk:json
 use valk:fs
-use valk:time
 use valk:ansi
 
 class Versions {
@@ -41,38 +40,29 @@ fn parse_release_versions(data: json:Value) ReleaseVersions {
 }
 
 fn get_versions() Versions {
-    let cd = vman_dir()
-    let path = cd + "vman.json"
+    let path = versions_json_path()
     let data = fs:read(path) !? "{}"
     let conf = json:decode(data) !? json:new_object()
 
-    let vman_latest = conf.get("vman-latest").string()
-    let valk = conf.get("valk")
-    let last_update = conf.get("last-update").int().to(uint)
-
+    let release = parse_release_versions(conf)
+    let vman_latest = release.vman_latest
     if vman_latest.is_empty() : vman_latest = VERSION
-
-    let now = time:microtime()
-    let one_day : uint = 1000 * 1000 * 60 * 60 * 1 // 1 hour
-    if now - last_update > one_day || !valk.has("default") {
-        cdn_get_versions() -> res {
-            let fetched = parse_release_versions(res)
-            if !fetched.vman_latest.is_empty() && fetched.valk.has("default") {
-                vman_latest = fetched.vman_latest
-                valk = fetched.valk
-
-                conf.set("vman-latest", json:new_string(fetched.vman_latest))
-                conf.set("valk", fetched.valk)
-                conf.set("last-update", json:new_int(now.to(int)))
-                fs:write(path, conf.encode(true)) _
-            }
-        }
-    }
 
     return Versions {
         vman_latest: vman_latest
         vman_current: VERSION
-        valk: valk
+        valk: release.valk
+    }
+}
+
+fn fetch(ignore_cache: bool) {
+    let path = versions_json_path()
+    if ignore_cache {
+        let data = cdn_get_versions() ! error("Failed to fetch versions from CDN")
+        fs:write(path, data.encode(true)) ! error("Failed to save versions: " + path)
+    } else {
+        let data = fetch_versions_cached() ! error("Failed to fetch versions from CDN")
+        fs:write(path, data.encode(true)) ! error("Failed to save versions: " + path)
     }
 }
 

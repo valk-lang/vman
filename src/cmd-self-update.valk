@@ -4,6 +4,7 @@ use valk:fs
 use valk:core
 
 fn self_update() {
+    fetch(false)
     let vv = get_versions()
 
     if vman_is_up_to_date(vv) {

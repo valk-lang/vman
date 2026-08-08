@@ -1,10 +1,46 @@
 
 use valk:http
 use valk:json
+use valk:time
 
 error ApiError (err)
 
+fn cdn_versions_url() String {
+    return "https://files.valk-cdn.dev/releases/versions.json"
+}
+
 fn cdn_get_versions() json:Value !ApiError {
-    let resp = http:request("GET", "https://files.valk-cdn.dev/releases/versions.json") ! throw .err
+    let url = cdn_versions_url()
+    let resp = http:request("GET", url) ! throw .err
+    if resp.status != 200 : throw .err
     return json:decode(resp.body) ! throw .err
+}
+
+fn fetch_versions_cached() json:Value !ApiError {
+    let url = cdn_versions_url()
+
+    let cache = Cache.get()
+    let reqs = cache.data.get("requests")
+    let id = VERSION + ":GET:" + url
+    let req = reqs.get(id)
+    let when = req.get("when").int().to(uint)
+    let body = req.get("body").string()
+    let now = time:mstime()
+    if now - when < 5 * 60 * 1000 && !body.is_empty() {
+        let data = json:decode(body) !? null
+        if isset(data) : return data
+    }
+
+    let resp = http:request("GET", url) ! throw .err
+    if resp.status != 200 : throw .err
+
+    let data = json:decode(resp.body) ! throw .err
+
+    req = req.set("when", json:new_int(now.to(int)))
+    req = req.set("body", json:new_string(resp.body))
+    reqs = reqs.set(id, req)
+    cache.data = cache.data.set("requests", reqs)
+    cache.save()
+
+    return data
 }

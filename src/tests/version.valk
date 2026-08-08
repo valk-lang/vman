@@ -23,7 +23,7 @@ test "Version: parses semantic versions" {
     assert(prefixed.n1 == 10)
     assert(prefixed.n2 == 20)
     assert(prefixed.n3 == 30)
-    assert(prefixed.name == "v10.20.30")
+    assert(prefixed.name == "10.20.30")
 }
 
 test "Version: rejects invalid syntax" {
@@ -59,4 +59,22 @@ test "Version: sorts in semantic order" {
     assert((versions.get(1) !? must_version("0.0.0")).name == "1.2.9")
     assert((versions.get(2) !? must_version("0.0.0")).name == "1.10.0")
     assert((versions.get(3) !? must_version("0.0.0")).name == "2.0.0")
+}
+
+test "Version: normalizes the v prefix" {
+    let plain = must_version("1.2.3")
+    assert(plain == must_version("v1.2.3"))
+    assert(plain.eq(must_version("v1.2.3")))
+    assert(!plain.lt(must_version("v1.2.3")))
+    assert(!plain.gt(must_version("v1.2.3")))
+    assert(must_version("v1.2.3").name == "1.2.3")
+    assert(must_version("V1.2.3").name == "1.2.3")
+}
+
+test "Version: leading zero components" {
+    let v = must_version("01.02.03")
+    assert(v.n1 == 1)
+    assert(v.n2 == 2)
+    assert(v.n3 == 3)
+    assert(v == must_version("1.2.3"))
 }

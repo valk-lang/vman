@@ -19,14 +19,22 @@ fn main(args: Array[String]) {
         Project.init_config()
     } else if action == "install" {
         cmd_package_install(args, options)
+    } else if action == "update" {
+        cmd_package_update()
     } else if action == "remove" {
         cmd_package_remove(args, options)
     } else if action == "self-update" {
         self_update()
     } else if action == "clean" {
-        cmd_clean()
+        cmd_clean(args)
+    } else if action == "unuse" {
+        cmd_unuse(args, options)
     } else if action == "version" {
         println(VERSION)
+    } else if action == "fetch" {
+        let arg0 = args.get(0) !? ""
+        fetch(arg0 == "true")
+        println("# Saved versions to " + versions_json_path())
     } else {
         println("Unknown command: '" + action + "'")
         exit(1)
@@ -57,9 +65,10 @@ fn help(code: i32) $exit {
     println(emo("⚙️", "#") + " vman commands");
     print("\n")
     println("  vman self-update     Update vman itself");
-    println("  vman clean           Clear downloaded Valk archives");
+    println("  vman clean packages  Remove unused vendor packages");
+    println("  vman clean cache     Clear the cache and downloads");
+    println("  vman clean repos     Remove cloned package repos");
     println("  vman version         Show vman version");
-    println("  vman {command} -h    Show help for a command");
 
     print("\n")
 
