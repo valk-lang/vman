@@ -44,6 +44,10 @@ fn main(args: Array[String]) {
 }
 
 fn help(code: i32) $exit {
+    println("-----------------------------")
+    println(" Valk package manager " + VERSION)
+    println("-----------------------------")
+    print("\n")
     println(emo("📦", "#") + " Package commands")
     print("\n")
     println(" vman init              Initialize a valk.json config")

@@ -12,6 +12,10 @@ curl -s https://valk-lang.dev/install.sh | bash
 ## Usage
 
 ```
+---------------------------
+ Valk package manager 0.0.6
+---------------------------
+
 📦 Package commands
 
  vman init              Initialize a valk.json config
