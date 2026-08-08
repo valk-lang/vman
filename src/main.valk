@@ -46,28 +46,28 @@ fn main(args: Array[String]) {
 fn help(code: i32) $exit {
     println(emo("📦", "#") + " Package commands")
     print("\n")
-    println(" vman init            Initialize a valk.json config")
-    println(" vman install         Install packages defined in valk.json")
-    println(" vman install {pkg}   Install a package globally")
-    println(" vman update          Update packages to the latest matching versions")
-    println(" vman remove {pkg}    Remove a package")
+    println(" vman init              Initialize a valk.json config")
+    println(" vman install           Install packages defined in valk.json")
+    println(" vman install {pkg}     Install a package in the current project")
+    println(" vman update            Update packages to the latest matching versions")
+    println(" vman remove {pkg}      Remove a package")
     print("\n")
     println(emo("💿", "#") + " Valk version control")
     print("\n")
-    println(" vman use 0.2.5       Install valk version 0.2.5")
-    println(" vman use             Install the version from valk.json")
-    println(" vman use latest      Install latest version")
-    println(" vman use dev         Install the dev valk version")
-    println(" vman unuse {version} Remove an installed Valk version")
+    println(" vman use 0.2.5         Install valk version 0.2.5")
+    println(" vman use               Install the version from valk.json")
+    println(" vman use latest        Install latest version")
+    println(" vman use dev           Install the dev valk version")
+    println(" vman unuse {version}   Remove an installed Valk version")
     print("\n")
     println(emo("⚙️", "#") + " Other");
     print("\n")
-    println(" vman version         Show vman version");
-    println(" vman self-update     Update vman itself");
+    println(" vman version           Show vman version");
+    println(" vman self-update       Update vman itself");
     print("\n")
-    println(" vman clean packages  Remove unused vendor packages");
-    println(" vman clean cache     Clear cached requests and downloads");
-    println(" vman clean repos     Remove cloned package repositories");
+    println(" vman clean packages    Remove unused vendor packages");
+    println(" vman clean cache       Clear cached requests and downloads");
+    println(" vman clean repos       Remove cloned package repositories");
 
     print("\n")
 
