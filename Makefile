@@ -47,7 +47,7 @@ dist-win:
 	rm -rf ./dists/win-x64/
 	mkdir -p ./dists/win-x64/bin
 	$(vc) build -o ./dists/win-x64/bin/vman $(DEFS) --target win-x64 $(DIST_FLAG)
-	bash ./cert-update.sh
+	bash ./tools/cert-update.sh
 	cp ./dists/cacert.pem ./dists/win-x64/bin/cacert.pem
 	cd ./dists/win-x64/ && tar -czf  ../vman-win-x64.tar.gz $(PACK_FILES_WIN)
 

@@ -2,7 +2,7 @@
 
 DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-file="$DIR/dists/cacert.pem"
+file="$DIR/../dists/cacert.pem"
 
 if [[ ! -e $file || $(find "$file" -mtime +14 -print) ]]; then
 	rm $file
