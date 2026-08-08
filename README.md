@@ -12,6 +12,10 @@ curl -s https://valk-lang.dev/install.sh | bash
 ## Usage
 
 ```
+vman -h
+```
+
+```
 ---------------------------
  Valk package manager 0.0.6
 ---------------------------
