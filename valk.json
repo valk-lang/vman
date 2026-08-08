@@ -1,7 +1,7 @@
 {
     "use": "0.2.6",
     "define": {
-        "VERSION": "0.0.6"
+        "VERSION": "0.0.7"
     },
     "dependencies": {
         "example": {
