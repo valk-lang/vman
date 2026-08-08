@@ -35,8 +35,26 @@ class Project {
 
     static fn init_config() {
         let path = SELF.get_config_path()
-        if !fs:exists(path) : fs:write(path, "{}") ! error("Failed to create: " + path)
-        else : println("# Project already has a 'valk.json' config")
+        let exists = fs:exists(path)
+        let config: json:Value = json:new_object()
+
+        if exists {
+            let data = fs:read(path) ! error("Failed to read: " + path)
+            config = json:decode(data) ! error("Invalid json syntax in '" + path + "'")
+            if config.has("use") {
+                println("# Project already has a 'valk.json' config")
+                return
+            }
+        }
+
+        let version = current_used_version()
+        if isset(version) : config = config.set("use", json:new_string(version.name))
+        else if exists {
+            println("# Project already has a 'valk.json' config")
+            return
+        }
+
+        fs:write(path, config.encode(true)) ! error("Failed to create: " + path)
     }
 
     fn add_pkg_to_config(pkg: Package, name: ?String) {
@@ -95,12 +113,12 @@ class Project {
             // Local directory dependencies are always present
             if fs:is_dir(name) : continue
 
-            let installed = dep.get("current").string()
+            let installed: ?Version = null
+            let current = dep.get("current").string()
+            if !current.is_empty() : installed = Version.new(current) ! error("Valk.json invalid version: " + current)
             let hash = dep.get("current_hash").string()
 
             let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string())
-
-            if !is_valid_version(pkg.ver.name) : error("Valk.json invalid version: " + pkg.ver.name)
 
             // Set/update the resolved version & hash in the config
             dep = dep.set("current", json:new_string(pkg.ver.name))
@@ -143,7 +161,7 @@ class Project {
             let pkg_name = fs:basename(pkg_dir)
 
             // Collect every version current in the config that maps to this package
-            let used = Array[String]{}
+                let used = Array[Version]{}
             each deps.values.keys() as key {
                 let dep = deps.get(key) ! {
                     continue
@@ -153,8 +171,10 @@ class Project {
                 // Local directory dependencies have no vendored package dir
                 if fs:is_dir(src) : continue
                 if Source.new(src).assoc_name() == pkg_name {
-                    let cur = dep.get("current").string()
-                    if !cur.is_empty() : used.append(cur)
+                    let current = dep.get("current").string()
+                    if !current.is_empty() {
+                        used.append(Version.new(current) ! error("Valk.json invalid version: " + current))
+                    }
                 }
             }
 
@@ -167,7 +187,11 @@ class Project {
             // Delete version sub-directories that aren't a used version
             let versions = fs:files_in(pkg_dir, false, false, true)
             each versions as ver_dir {
-                if used.contains(fs:basename(ver_dir)) {
+                let version = Version.new(fs:basename(ver_dir)) ! {
+                    fs:delete_recursive(ver_dir)
+                    continue
+                }
+                if used.contains(version) {
                     protected.append(ver_dir)
                 } else {
                     fs:delete_recursive(ver_dir)
@@ -191,12 +215,12 @@ fn remove_empty_dirs(dir: String, protected: Array[String]) {
     }
 }
 
-fn resolve_dep_pkg(project: Project, name: String, installed: String, hash: String, version: String) Package {
-    if !installed.is_empty() && !hash.is_empty() {
+fn resolve_dep_pkg(project: Project, name: String, installed: ?Version, hash: String, mask: String) Package {
+    if isset(installed) && !hash.is_empty() {
         return Package.from_config(project, name, installed, hash)
     }
     let requested : ?String = null
-    if !version.is_empty() : requested = version
+    if !mask.is_empty() : requested = mask
     return Package.init(project, name, requested)
 }
 

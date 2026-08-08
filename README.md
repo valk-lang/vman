@@ -1,7 +1,7 @@
 
 # Valk package manager
 
-Used for installing valk packages, compiler version control and managing toolchains for cross-compiling.
+Used for installing Valk packages and managing compiler versions
 
 ## Install
 
@@ -14,23 +14,28 @@ curl -s https://valk-lang.dev/install.sh | bash
 ```
 📦 Package commands
 
- vman install         Install pacakages defined in the valk.json config
- vman install {pkg}   Install pacakage globally
- vman remove {pkg}    Remove pacakage
+ vman init              Initialize a valk.json config
+ vman install           Install packages defined in valk.json
+ vman install {pkg}     Install a package in the current project
+ vman update            Update packages to the latest matching versions
+ vman remove {pkg}      Remove a package
 
 💿 Valk version control
 
- vman use 0.0.1       Install valk version 0.0.1
- vman use             Install the version from valk.json
- vman use latest      Install latest version
- vman use dev         Install the dev valk version
+ vman use 0.2.5         Install valk version 0.2.5
+ vman use               Install the version from valk.json
+ vman use latest        Install latest version
+ vman use dev           Install the dev valk version
+ vman unuse {version}   Remove an installed Valk version
 
 ⚙️ Other
 
- vman self-update     Update vman itself
- vman clean           Clear downloaded Valk archives
- vman version         Show vman version
- vman {command} -h    Show help for a command
+ vman version           Show vman version
+ vman self-update       Update vman itself
+
+ vman clean packages    Remove unused vendor packages
+ vman clean cache       Clear cached requests and downloads
+ vman clean repos       Remove cloned package repositories
  ```
 
 ## Testing

@@ -34,7 +34,8 @@ fn cmd_clean(args: Array[String]) {
 }
 
 fn cmd_unuse(args: Array[String], options: Array[String]) {
-    let version = args.get(0) ! help(1)
+    let requested = args.get(0) ! help(1)
+    let version = Version.new(requested) ! error("Invalid version syntax: '" + requested + "'")
 
     let current = current_used_version()
 
@@ -42,9 +43,9 @@ fn cmd_unuse(args: Array[String], options: Array[String]) {
     let dir = version_dir(version)
     if fs:is_dir(dir) {
         fs:delete_recursive(dir)
-        println("# Removed version: " + version)
+        println("# Removed version: " + version.name)
     } else {
-        println("# Version not installed: " + version)
+        println("# Version not installed: " + version.name)
     }
 
     // If it was the current version, or the current could not be determined,
@@ -54,18 +55,22 @@ fn cmd_unuse(args: Array[String], options: Array[String]) {
     }
 }
 
-fn current_used_version() ?String {
+fn current_used_version() ?Version {
     #if OS == win
     let link = bin_dir() + "valk.bat"
     #else
     let link = bin_dir() + valk_exe()
     #end
 
+    #if OS == win
+    let content = fs:read(link) ! return null
+    let target = content.split("\"").get(1) ! return null
+    #else
     let target = fs:realpath(link)
+    #end
     if !target.starts_with(versions_dir()) : return null
 
-    let v = Version.new(fs:basename(fs:dir_of(target))) ! return null
-    return v.name
+    return Version.new(fs:basename(fs:dir_of(target))) ! return null
 }
 
 fn remove_current_link() {

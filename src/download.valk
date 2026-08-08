@@ -37,9 +37,9 @@ fn get_pack_ext() String {
     #end
 }
 
-fn download_and_unzip_version(v: String) {
+fn download_and_unzip_version(v: Version) {
     let vdir = version_dir(v)
-    let to_path = downloads_dir() + "valk-"+ v +"-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
+    let to_path = downloads_dir() + "valk-"+ v.name +"-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
     download_version(v, to_path)
     if !fs:exists(vdir) : fs:mkdir(vdir) ! error("Failed to create directory: " + vdir)
     // Unpack
@@ -53,11 +53,11 @@ fn download_and_unzip_version(v: String) {
     #end
 }
 
-fn download_version(v: String, to_path: String) {
+fn download_version(v: Version, to_path: String) {
 
     if fs:exists(to_path) : return
 
-    let url = cdn_host() + "/releases/valk/" + v + "/valk-" + v + "-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
+    let url = cdn_host() + "/releases/valk/" + v.name + "/valk-" + v.name + "-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
 
     println("# Downloading: " + url)
 

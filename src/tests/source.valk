@@ -51,9 +51,9 @@ test "Source: selects the highest compatible version" {
     let highest = source.get_highest_version(null) !? must_version("0.0.0")
     assert(highest.name == "2.0.0")
 
-    let compatible = source.get_highest_version(main:Mask.new("1.x")) !? must_version("0.0.0")
+    let compatible = source.get_highest_version(must_mask("1.x")) !? must_version("0.0.0")
     assert(compatible.name == "1.10.0")
 
-    let missing: ?main:Version = source.get_highest_version(main:Mask.new("3.x")) !? null
+    let missing: ?main:Version = source.get_highest_version(must_mask("3.x")) !? null
     assert(!isset(missing))
 }
