@@ -9,8 +9,8 @@ fn div() String {
     #end
 }
 
-fn version_dir(version: String) String {
-    return versions_dir() + version + div()
+fn version_dir(version: Version) String {
+    return versions_dir() + version.name + div()
 }
 
 fn versions_dir() String {

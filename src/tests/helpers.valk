@@ -9,3 +9,10 @@ fn must_version(name: String) main:Version {
         return main:Version { name: name }
     }
 }
+
+fn must_mask(name: String) main:Mask {
+    return main:Mask.new(name) ! {
+        assert(false)
+        return main:Mask { name: name n1_any: true n2_any: true n3_any: true }
+    }
+}

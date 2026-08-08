@@ -1,4 +1,6 @@
 
+error MaskError (invalid)
+
 class Mask {
     name: String
     n1: uint (0)
@@ -8,20 +10,34 @@ class Mask {
     n2_any: bool
     n3_any: bool
 
-    static fn new(version: String) Mask {
+    static fn new(value: String) SELF !MaskError {
 
-        let split = version.split(".")
-        if split.length > 3 : error("Invalid mask")
+        let split = value.split(".")
+        if split.length == 0 || split.length > 3 : throw .invalid
 
-        let n1: uint = (split.get(0) !? "0").to_uint() !? 0
-        let n2: uint = (split.get(1) !? "0").to_uint() !? 0
-        let n3: uint = (split.get(2) !? "0").to_uint() !? 0
-        let n1_any: bool = (split.get(0) !? "0") == "x"
-        let n2_any: bool = (split.get(1) !? "x") == "x"
-        let n3_any: bool = (split.get(2) !? "x") == "x"
+        let contains_x = false
+        each split as part {
+            if part == "x" {
+                contains_x = true
+                continue
+            }
+            if !part.is_integer() : throw .invalid
+            part.to_uint() ! throw .invalid
+        }
+        if !contains_x && split.length != 3 : throw .invalid
+
+        let p1 = split.get(0) !? "x"
+        let p2 = split.get(1) !? "x"
+        let p3 = split.get(2) !? "x"
+        let n1_any = p1 == "x"
+        let n2_any = p2 == "x"
+        let n3_any = p3 == "x"
+        let n1: uint = n1_any ? 0 : p1.to_uint() ! throw .invalid
+        let n2: uint = n2_any ? 0 : p2.to_uint() ! throw .invalid
+        let n3: uint = n3_any ? 0 : p3.to_uint() ! throw .invalid
 
         return Mask {
-            name: version
+            name: value
             n1: n1
             n2: n2
             n3: n3
@@ -31,16 +47,9 @@ class Mask {
         }
     }
 
-    static fn is_mask(version: String) bool {
-        let split = version.split(".")
-        if split.length > 3 : return false
-        let contains_x = false
-        each split as part {
-            if part == "x" : contains_x = true
-            if !part.is_integer() && part != "x" : return false
-        }
-        if !contains_x : return false
-        return true
+    static fn is_mask(value: String) bool {
+        let mask = SELF.new(value) ! return false
+        return mask.n1_any || mask.n2_any || mask.n3_any
     }
 
     fn is_compat(v: Version) bool {

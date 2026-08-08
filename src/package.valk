@@ -16,19 +16,19 @@ class Package {
     mask: ?Mask (null)
     conf: ?json:Value (null)
 
-    static fn init(project: Project, name: String, version: ?String) Package {
+    static fn init(project: Project, name: String, request: ?String) Package {
 
         let src = Source.new(name)
-        let user_defined_version = isset(version)
+        let user_defined_version = isset(request)
 
         // Version
         let ver : ?Version = null
         let mask : ?Mask = null
-        if !isset(version) {
+        if !isset(request) {
             ver = src.get_highest_version(null) !? null
         } else {
-            if Mask.is_mask(version) : mask = Mask.new(version)
-            if !isset(mask) && version != "_" : ver = Version.new(version) ! error("Invalid version syntax: " + version)
+            if Mask.is_mask(request) : mask = Mask.new(request) ! error("Invalid version mask: " + request)
+            if !isset(mask) && request != "_" : ver = Version.new(request) ! error("Invalid version syntax: " + request)
         }
 
         // Find version
@@ -37,7 +37,7 @@ class Package {
                 let vv = src.get_versions()
                 if vv.length == 0 : error("Package '%name' hasnt created any versions yet")
                 if user_defined_version && isset(mask) : error("Package '%name' has no versions matching: " + mask.name)
-                if isset(version) : error("Version '%version' not found")
+                if isset(request) : error("Version '%request' not found")
                 error("Package '%name' could not find a version to install")
             }
         }
@@ -68,10 +68,10 @@ class Package {
         }
     }
 
-    static fn from_config(project: Project, name: String, version: String, hash: String) Package {
+    static fn from_config(project: Project, name: String, version: Version, hash: String) Package {
 
         let src = Source.new(name)
-        let ver = Version.new(version) ! error("Invalid version in config: " + version)
+        let ver = version
         ver.hash = hash
 
         let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())

@@ -64,14 +64,6 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 
 - delete every folder in ~/.vman/repos
 
-## vman unuse {version}
-
-note: Do not document this command in the -h/--help output
-
-- check if version is the current used version
-- Removes directory if exists: ~/.vman/versions/{version}
-- if it was the current or current was null : delete symlink
-
 ## vman use [{version}]
 
 - resolve the requested version:
@@ -83,6 +75,14 @@ note: Do not document this command in the -h/--help output
 - if not installed: print installing msg, download the valk archive from https://files.valk-cdn.dev/releases/valk/{version}/... (skip download if the archive already exists in ~/.vman/downloads), then unzip into ~/.vman/versions/{version}
 - create the symbolic link ~/.vman/bin/valk -> ~/.vman/versions/{version}/valk (remove any existing link, including dangling ones)
 - success msg
+
+## vman unuse {version}
+
+note: Do not document this command in the -h/--help output
+
+- check if version is the current used version
+- Removes directory if exists: ~/.vman/versions/{version}
+- if it was the current or current was null : delete symlink
 
 ## vman self-update
 

@@ -48,7 +48,7 @@ synctest "Project: persists dependency configuration" {
         repo_dir: ""
         src: source
         ver: must_version("1.2.3")
-        mask: main:Mask.new("1.2.x")
+        mask: must_mask("1.2.x")
     }
     pkg.ver.hash = "0123456789abcdef0123456789abcdef01234567"
 

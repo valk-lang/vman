@@ -13,6 +13,8 @@ fn main(args: Array[String]) {
     let action = args.get(0) ! help(0)
     args.remove(0)
 
+    if options.contains("-h") || options.contains("--help") : help(0)
+
     if action == "use" {
         cmd_use(args, options)
     } else if action == "init" {
@@ -42,33 +44,30 @@ fn main(args: Array[String]) {
 }
 
 fn help(code: i32) $exit {
-
-    println("-----------------------")
-    println("  Valk Manager " + VERSION)
-    println("-----------------------")
-
-    // Packages
+    println(emo("📦", "#") + " Package commands")
     print("\n")
-    println("  vman init           Init valk.json config")
-
-    // Packages
+    println(" vman init            Initialize a valk.json config")
+    println(" vman install         Install packages defined in valk.json")
+    println(" vman install {pkg}   Install a package globally")
+    println(" vman update          Update packages to the latest matching versions")
+    println(" vman remove {pkg}    Remove a package")
     print("\n")
-    help_intro_pkg_commands()
-    // Use
+    println(emo("💿", "#") + " Valk version control")
     print("\n")
-    help_intro_use()
-    // Toolchains
-    // print("\n")
-    // help_intro_toolchain()
-    // Other
+    println(" vman use 0.2.5       Install valk version 0.2.5")
+    println(" vman use             Install the version from valk.json")
+    println(" vman use latest      Install latest version")
+    println(" vman use dev         Install the dev valk version")
+    println(" vman unuse {version} Remove an installed Valk version")
     print("\n")
-    println(emo("⚙️", "#") + " vman commands");
+    println(emo("⚙️", "#") + " Other");
     print("\n")
-    println("  vman self-update     Update vman itself");
-    println("  vman clean packages  Remove unused vendor packages");
-    println("  vman clean cache     Clear the cache and downloads");
-    println("  vman clean repos     Remove cloned package repos");
-    println("  vman version         Show vman version");
+    println(" vman version         Show vman version");
+    println(" vman self-update     Update vman itself");
+    print("\n")
+    println(" vman clean packages  Remove unused vendor packages");
+    println(" vman clean cache     Clear cached requests and downloads");
+    println(" vman clean repos     Remove cloned package repositories");
 
     print("\n")
 
