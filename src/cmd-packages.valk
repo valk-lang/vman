@@ -10,20 +10,13 @@ fn cmd_package_install(args: Array[String], options: Array[String]) {
     // Source
     let install_pkg_name = args.get(0) !? null
     if isset(install_pkg_name) {
-        // Version to install
-        let install_version = args.get(1) !? null
+        // Version mask to install
+        let install_mask = args.get(1) !? null
         let alias = args.get(2) !? null
         // Package
-        let pkg = Package.init(p, install_pkg_name, install_version)
+        let pkg = Package.init(p, install_pkg_name, install_mask)
 
         p.packages.set(pkg.id, pkg)
-
-        // Already installed?
-        if isset(install_version) && pkg.installed() {
-            if ansi:supported() : println("# Package already installed: " + pkg.id.to(String).ansi.green())
-            else : println("# Package already installed: " + pkg.id)
-            return
-        }
 
         // Install
         pkg.install()

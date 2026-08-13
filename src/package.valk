@@ -19,36 +19,14 @@ class Package {
     static fn init(project: Project, name: String, request: ?String) Package {
 
         let src = Source.new(name)
-        let user_defined_version = isset(request)
+        let requested_mask = request ?? "x.x.x"
+        let mask = Mask.new(requested_mask) ! error("Invalid version mask: " + requested_mask)
 
-        // Version
-        let ver : ?Version = null
-        let mask : ?Mask = null
-        if !isset(request) {
-            ver = src.get_highest_version(null) !? null
-        } else {
-            if Mask.is_mask(request) : mask = Mask.new(request) ! error("Invalid version mask: " + request)
-            if !isset(mask) && request != "_" : ver = Version.new(request) ! error("Invalid version syntax: " + request)
-        }
-
-        // Find version
-        if !isset(ver) {
-            ver = src.get_highest_version(mask) ! {
-                let vv = src.get_versions()
-                if vv.length == 0 : error("Package '%name' hasnt created any versions yet")
-                if user_defined_version && isset(mask) : error("Package '%name' has no versions matching: " + mask.name)
-                if isset(request) : error("Version '%request' not found")
-                error("Package '%name' could not find a version to install")
-            }
-        }
-
-        // Resolve the commit hash the version was tagged at
-        if ver.hash.is_empty() {
+        // Resolve the latest tagged version that matches the requested mask
+        let ver = src.get_highest_version(mask) ! {
             let vv = src.get_versions()
-            each vv as entry {
-                if entry.eq(ver) : ver.hash = entry.hash
-            }
-            if ver.hash.is_empty() : error("Package '%name' has no commit hash for version: " + ver.name)
+            if vv.length == 0 : error("Package '%name' hasnt created any versions yet")
+            error("Package '%name' has no versions matching: " + mask.name)
         }
 
         let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())

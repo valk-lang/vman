@@ -85,7 +85,7 @@ class Project {
         if isset(mask) {
             dep = dep.set("version", json:new_string(mask.name))
         } else {
-            dep = dep.remove("version")
+            dep = dep.set("version", json:new_string("x.x.x"))
         }
 
         deps = deps.set(name, dep)
@@ -115,22 +115,24 @@ class Project {
 
             let installed: ?Version = null
             let current = dep.get("current").string()
-            if !current.is_empty() : installed = Version.new(current) ! error("Valk.json invalid version: " + current)
             let hash = dep.get("current_hash").string()
+            if !current.is_empty() && !hash.is_empty() {
+                installed = Version.new(current) ! error("Valk.json invalid version: " + current)
+            }
 
             let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string())
 
             // Set/update the resolved version & hash in the config
             dep = dep.set("current", json:new_string(pkg.ver.name))
             dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
-            // Record the "version" mask if it was used and is missing
+            // Every registry dependency has a mask; missing masks default to all versions
             let ver_mask = dep.get("version").string()
             if ver_mask.is_empty() {
                 let m = pkg.mask
                 if isset(m) {
                     dep = dep.set("version", json:new_string(m.name))
                 } else {
-                    dep = dep.remove("version")
+                    dep = dep.set("version", json:new_string("x.x.x"))
                 }
             }
             deps = deps.set(key, dep)

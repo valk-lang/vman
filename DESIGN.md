@@ -19,7 +19,7 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - loops "dependencies"
 -- if src is directory : skip
 -- reads "current" & "current_hash"
---- if no "current" or no "current_hash", look at "version" mask (error if invalid mask), look up latest version (&hash) that matches the mask (error if no versions match)
+--- if no "current" or no "current_hash", look at "version" mask (error if invalid mask, if no mask use x.x.x mask), look up latest version (&hash) that matches the mask (error if no versions match)
 -- now that we have our version & hash
 --- validate version syntax
 --- set/update "current" & "current_hash" in config (also set "version" if missing)
@@ -28,12 +28,12 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - save config
 - success msg
 
-## vman install {name} [{version}]
+## vman install {name} [{version-mask}]
 
-- if version specified : check if 'package-dir' exists, if so -> already installed success message
-- fetch latest version/hash from repo if no version specified
-- else find version in tags + hash
+- if no version-mask, use x.x.x
+- fetch latest version/hash from repo tags that matches version-mask
 - clone repo to ~/.vman/repos if not exists, checkout the hash, copy files to the 'package-dir'
+- store version-mask in "version"
 - store version in "current" & hash in "current_hash"
 - save config
 - success msg

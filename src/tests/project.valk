@@ -74,5 +74,43 @@ synctest "Project: persists dependency configuration" {
     let updated = project.config.get("dependencies").get("example")
     assert(updated.get("current").string() == "1.2.4")
     assert(updated.get("current_hash").string() == "abcdef0123456789abcdef0123456789abcdef0")
-    assert(!updated.has("version"))
+    assert(updated.get("version").string() == "x.x.x")
+}
+
+synctest "Project: supplies the default mask for pinned dependencies" {
+    let debug_dir = fs:add(fs:cwd(), "debug")
+    if !fs:is_dir(debug_dir) : fs:mkdir(debug_dir) ! {
+        assert(false)
+        return
+    }
+
+    let config_path = fs:add(debug_dir, "project-default-mask-test.json")
+    defer fs:delete(config_path) _
+
+    let dep: json:Value = json:new_object()
+    dep = dep.set("src", json:new_string("github.com/valk-lang/pkg-example"))
+    dep = dep.set("current", json:new_string("1.2.3"))
+    dep = dep.set("current_hash", json:new_string("0123456789abcdef0123456789abcdef01234567"))
+    let dependencies: json:Value = json:new_object()
+    dependencies = dependencies.set("example", dep)
+    let config: json:Value = json:new_object()
+    config = config.set("dependencies", dependencies)
+
+    let vendor_dir = fs:add(debug_dir, "vendor")
+    let installed_dir = fs:add(vendor_dir, "github-valk-lang-pkg-example/1.2.3")
+    if !fs:is_dir(vendor_dir) : fs:mkdir(vendor_dir) ! assert(false)
+    if !fs:is_dir(fs:add(vendor_dir, "github-valk-lang-pkg-example")) : fs:mkdir(fs:add(vendor_dir, "github-valk-lang-pkg-example")) ! assert(false)
+    if !fs:is_dir(installed_dir) : fs:mkdir(installed_dir) ! assert(false)
+    defer fs:delete_recursive(fs:add(vendor_dir, "github-valk-lang-pkg-example"))
+
+    let project = main:Project {
+        dir: debug_dir
+        vendor_dir: vendor_dir
+        config_path: config_path
+        config: config
+    }
+    project.install_packages()
+
+    let installed = project.config.get("dependencies").get("example")
+    assert(installed.get("version").string() == "x.x.x")
 }

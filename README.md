@@ -24,7 +24,8 @@ vman -h
 
  vman init              Initialize a valk.json config
  vman install           Install packages defined in valk.json
- vman install {pkg}     Install a package in the current project
+ vman install {pkg} [{version-mask}]
+                        Install a package in the current project
  vman update            Update packages to the latest matching versions
  vman remove {pkg}      Remove a package
 
