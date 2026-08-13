@@ -27,11 +27,11 @@ vman -h
  vman install {pkg} [{version-mask}]
                         Install a package in the current project
  vman update            Update packages to the latest matching versions
- vman remove {pkg}      Remove a package
+ vman remove {pkg}      Remove a package by name
 
 💿 Valk version control
 
- vman use 0.2.5         Install valk version 0.2.5
+ vman use 0.3.4         Install valk version 0.3.4
  vman use               Install the version from valk.json
  vman use latest        Install latest version
  vman use dev           Install the dev valk version
