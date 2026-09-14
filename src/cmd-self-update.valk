@@ -20,8 +20,10 @@ fn self_update() {
 
     // Download
     let out = fs.stream(tmp_path, fs.OpenOptions { read: false, write: fs.WriteMode.truncate, create: true }) ! error("Failed to create file: " + tmp_path)
+    // The body streams to disk, so the client's in-memory size limit does not apply
     let options = http.Options {
         output: out
+        max_response_body_size: 0
     }
 
     let req = http.create_request("GET", url, options) ! {
@@ -36,7 +38,8 @@ fn self_update() {
         if E.code == E.disconnected : error("Failed to download: " + url)
         error("Invalid response from: " + url)
     } {
-        print("# Download progress: " + req.recv_percent + "%")
+        print("
+# Download progress: " + req.recv_percent + "%")
     }
     out.close() ! error("Failed to write file: " + tmp_path)
     let response = req.response() ! error("Failed to receive update response: " + url)
