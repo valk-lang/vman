@@ -1,0 +1,92 @@
+
+use valk.json
+use valk.core
+
+error SelectError (none, incompatible)
+
+// The valk compiler range a package declares in its valk.json:
+// { "require": { "valk": { "min": "0.7.0", "max": "0.8.0" } } }
+class ValkRequire {
+    min: ?Version (null)
+    max: ?Version (null)
+
+    static fn from_config(conf: json.Value) SELF {
+        let req = conf.get("require").get("valk")
+        let res = SELF {}
+        let min = req.get("min").string
+        if !min.is_empty() {
+            let v = Version.new(min) !? null
+            if !isset(v) : warn("Invalid 'require.valk.min' version: " + min)
+            res.min = v
+        }
+        let max = req.get("max").string
+        if !max.is_empty() {
+            let v = Version.new(max) !? null
+            if !isset(v) : warn("Invalid 'require.valk.max' version: " + max)
+            res.max = v
+        }
+        return res
+    }
+
+    fn is_any() bool {
+        return !isset(this.min) && !isset(this.max)
+    }
+
+    fn is_compat(v: Version) bool {
+        let min = this.min
+        if isset(min) && v < min : return false
+        let max = this.max
+        if isset(max) && v > max : return false
+        return true
+    }
+
+    + fn str() String $to {
+        let min = this.min
+        let max = this.max
+        if isset(min) && isset(max) : return min.name + " - " + max.name
+        if isset(min) : return ">= " + min.name
+        if isset(max) : return "<= " + max.name
+        return "any"
+    }
+}
+
+// Reads the package valk.json as it was at `hash` in the cloned repository
+fn package_config_at(repo_dir: String, hash: String) ?json.Value {
+    let cmd = "git -C " + shell_quote(repo_dir) + " show " + shell_quote(hash + ":valk.json")
+    let code, output = core.exec(cmd)
+    if code != 0 : return null
+    return json.decode(output) !? null
+}
+
+fn require_at(repo_dir: String, hash: String) ValkRequire {
+    let conf = package_config_at(repo_dir, hash) ?! return ValkRequire{}
+    return ValkRequire.from_config(conf)
+}
+
+// Picks the highest version matching `mask` that supports `valk` (any version when `valk` is null)
+fn select_version(versions: Array[Version], mask: ?Mask, valk: ?Version, require_of: fn(Version)(ValkRequire)) Version !SelectError {
+    let candidates = Array[Version]{}
+    each versions as v {
+        if isset(mask) && !mask.is_compat(v) : continue
+        candidates.append(v)
+    }
+    if candidates.length == 0 : throw .none
+
+    each candidates.sorted().reversed() as v {
+        if !isset(valk) : return v
+        if require_of(v).is_compat(valk) : return v
+    }
+    throw .incompatible
+}
+
+fn print_version_table(versions: Array[Version], valk: ?Version, require_of: fn(Version)(ValkRequire)) {
+    each versions.sorted().reversed() as v {
+        let req = require_of(v)
+        let line = " " + v.name.pad_right(' ', 10) + " valk: " + req.str()
+        if isset(valk) {
+            if req.is_compat(valk) : line = line + "  " + emo("✅", "[ok]")
+            else : line = line + "  " + emo("❌", "[incompatible]")
+        }
+        println(line)
+    }
+}

@@ -14,6 +14,7 @@ class Package {
     src: Source
     ver: Version
     mask: ?Mask (null)
+    require: ?ValkRequire (null)
     conf: ?json.Value (null)
 
     static fn init(project: Project, name: String, request: ?String) Package {
@@ -22,15 +23,34 @@ class Package {
         let requested_mask = request ?? "x.x.x"
         let mask = Mask.new(requested_mask) ! error("Invalid version mask: " + requested_mask)
 
-        // Resolve the latest tagged version that matches the requested mask
-        let ver = src.get_highest_version(mask) ! {
-            let vv = src.get_versions()
-            if vv.length == 0 : error("Package '%name' hasnt created any versions yet")
-            error("Package '%name' has no versions matching: " + mask.name)
+        let versions = src.get_versions()
+        if versions.length == 0 : error("Package '%name' hasnt created any versions yet")
+
+        let repo_dir = fs.add(cache_repo_dir(), src.name)
+        let require_of = fn(v: Version) ValkRequire {
+            return require_at(repo_dir, v.hash)
+        }
+
+        // The valk version of the project decides which package versions qualify
+        let valk = project.valk_version()
+        let valk_name = ""
+        if isset(valk) {
+            valk_name = valk.name
+            ensure_repo(src, repo_dir)
+        }
+
+        // Resolve the latest tagged version that matches the requested mask and supports the project valk version
+        let ver = select_version(versions, mask, valk, require_of) ! {
+            if E.code == E.none : error("Package '%name' has no versions matching: " + mask.name)
+            println("# Versions of '%name' matching '" + mask.name + "' (project uses valk " + valk_name + ")")
+            print_version_table(versions.filter(fn(v: Version) bool { return mask.is_compat(v) }), valk, require_of)
+            error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk_name)
         }
 
         let pkg_dir = fs.add(project.vendor_dir, src.assoc_name())
         let ver_dir = fs.add(pkg_dir, ver.name)
+        let require: ?ValkRequire = null
+        if isset(valk) : require = require_of(ver)
 
         return Package {
             project: project
@@ -39,10 +59,11 @@ class Package {
             id: fs.add(src.name, ver.name)
             pkg_dir: pkg_dir
             ver_dir: ver_dir
-            repo_dir: fs.add(cache_repo_dir(), src.name)
+            repo_dir: repo_dir
             src: src
             ver: ver
             mask: mask
+            require: require
         }
     }
 
@@ -73,22 +94,15 @@ class Package {
         return fs.exists(this.ver_dir)
     }
     fn install() {
-        this.install_repo()
-        //
         let repo_dir = this.repo_dir
         let dest_dir = this.ver_dir
         let hash = this.ver.hash
         if hash.is_empty() : error("Package '%{this.name}' has no commit hash to install")
 
-        // Fetch
-        let quoted_repo_dir = shell_quote(repo_dir)
-        let cmd = "git -C %quoted_repo_dir fetch"
-        let fetch_code, _ = core.exec(cmd)
-        if fetch_code == 127 : error("Git is not installed")
-        if fetch_code != 0 : error("Failed to fetch package repository: %cmd")
+        ensure_repo(this.src, repo_dir)
 
         // Checkout commit
-        cmd = "git -C %quoted_repo_dir checkout " + shell_quote(hash)
+        let cmd = "git -C " + shell_quote(repo_dir) + " checkout " + shell_quote(hash)
         let checkout_code, _ = core.exec(cmd)
         if checkout_code != 0 : error("Package commit not found: %hash")
 
@@ -102,19 +116,6 @@ class Package {
             fs.copy(file, fs.add(dest_dir, fn), true) _
         }
     }
-    fn install_repo() {
-        let dir = this.repo_dir
-        if fs.exists(dir) : return
-        let url = this.clone_url()
-        let cmd = "git clone " + shell_quote(url) + " " + shell_quote(dir)
-        let code, _ = core.exec(cmd)
-        if code != 0 : error("Failed to clone package: %cmd")
-    }
-
-    fn clone_url() String {
-        return "https://github.com/%{this.src.user_name}/%{this.src.repo_name}.git"
-    }
-
     fn config() json.Value {
         let conf = this.conf
         if isset(conf) : return conf
@@ -126,4 +127,25 @@ class Package {
         this.conf = conf
         return conf
     }
+}
+
+global fetched_repos : Array[String] (.{})
+
+// Clones the package repository, or fetches it once per run so new tags are known
+fn ensure_repo(src: Source, dir: String) {
+    if fetched_repos.contains(dir) : return
+    fetched_repos.append(dir)
+
+    if !fs.exists(dir) {
+        let cmd = "git clone " + shell_quote(src.clone_url()) + " " + shell_quote(dir)
+        let code, _ = core.exec(cmd)
+        if code == 127 : error("Git is not installed")
+        if code != 0 : error("Failed to clone package: %cmd")
+        return
+    }
+
+    let cmd = "git -C " + shell_quote(dir) + " fetch --tags"
+    let code, _ = core.exec(cmd)
+    if code == 127 : error("Git is not installed")
+    if code != 0 : error("Failed to fetch package repository: %cmd")
 }

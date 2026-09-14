@@ -44,6 +44,10 @@ class Source {
         return this.platform() + "-" + this.user_name + "-" + this.repo_name
     }
 
+    fn clone_url() String {
+        return "https://github.com/%{this.user_name}/%{this.repo_name}.git"
+    }
+
     fn get_versions() Array[Version] {
         let vv = this.versions
         if isset(vv) : return vv

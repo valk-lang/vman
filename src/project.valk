@@ -10,9 +10,15 @@ class Project {
     packages: Map[Package] (.{})
 
     static fn new() SELF {
+        let p = SELF.load()
+        if !fs.is_dir(p.vendor_dir) : fs.create_dir(p.vendor_dir) ! error("Failed to create directory: " + p.vendor_dir)
+        return p
+    }
+
+    // Reads the project config without touching the vendor directory
+    static fn load() SELF {
         let dir = (fs.cwd() ! error("Failed to get current directory"))
         let vendor_dir = fs.add(dir, "vendor")
-        if !fs.is_dir(vendor_dir) : fs.create_dir(vendor_dir) ! error("Failed to create directory: " + vendor_dir)
         let config_path = SELF.get_config_path()
         if !fs.exists(config_path) : error("No 'valk.json' config not found: " + config_path)
 
@@ -24,6 +30,32 @@ class Project {
             vendor_dir: vendor_dir
             config_path: config_path
             config: data
+        }
+    }
+
+    // The valk version the project uses, from "use" in valk.json
+    fn valk_version() ?Version {
+        let value = this.config.get("use").string
+        if value.is_empty() : return null
+        return Version.new(value) ! error("Invalid 'use' version in valk.json: " + value)
+    }
+
+    // Warns about dependencies whose valk requirement does not include `valk`
+    fn check_dep_requirements(valk: Version) {
+        let deps = this.config.get("dependencies").object
+        each deps.values as dep, key {
+            let src = dep.get("src").string
+            if src.is_empty() : continue
+            let dir = src
+            if !fs.is_dir(src) {
+                let current = dep.get("current").string
+                if current.is_empty() : continue
+                dir = fs.add(fs.add(this.vendor_dir, Source.new(src).assoc_name()), current)
+            }
+            let str = fs.read(fs.add(dir, "valk.json")) ! continue
+            let conf = json.decode(str) ! continue
+            let req = ValkRequire.from_config(conf)
+            if !req.is_compat(valk) : warn("Dependency '" + key + "' requires valk " + req.str() + " but the project uses " + valk.name)
         }
     }
 
@@ -146,6 +178,9 @@ class Project {
 
         this.config = this.config.set("dependencies", deps)
         fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+
+        let valk = this.valk_version()
+        if isset(valk) : this.check_dep_requirements(valk)
 
         println("# All dependencies have been installed")
     }

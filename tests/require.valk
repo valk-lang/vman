@@ -1,0 +1,120 @@
+use vman
+use valk.json
+
+@ignore_access
+
+fn require_from(text: String) vman.ValkRequire {
+    let conf: json.Value = json.decode(text) !? json.new_object()
+    return vman.ValkRequire.from_config(conf)
+}
+
+test "Require: parses the valk range from a package config" {
+    let both = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\",\"max\":\"0.8.0\"}}}")
+    let min = both.min
+    let max = both.max
+    assert(isset(min))
+    assert(isset(max))
+    if isset(min) : assert(min == must_version("0.7.0"))
+    if isset(max) : assert(max == must_version("0.8.0"))
+    assert(!both.is_any())
+    assert(both.str() == "0.7.0 - 0.8.0")
+
+    let only_min = require_from("{\"name\":\"pkg\",\"require\":{\"valk\":{\"min\":\"v0.6.3\"}}}")
+    assert(isset(only_min.min))
+    assert(!isset(only_min.max))
+    assert(only_min.str() == ">= 0.6.3")
+
+    let only_max = require_from("{\"require\":{\"valk\":{\"max\":\"0.9.9\"}}}")
+    assert(!isset(only_max.min))
+    assert(only_max.str() == "<= 0.9.9")
+}
+
+test "Require: missing or invalid requirements allow any version" {
+    let none = require_from("{\"name\":\"pkg\"}")
+    assert(none.is_any())
+    assert(none.str() == "any")
+    assert(none.is_compat(must_version("0.0.1")))
+    assert(none.is_compat(must_version("99.0.0")))
+
+    let invalid = require_from("{\"require\":{\"valk\":{\"min\":\"latest\"}}}")
+    assert(invalid.is_any())
+}
+
+test "Require: checks the range boundaries" {
+    let req = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\",\"max\":\"0.8.0\"}}}")
+    assert(!req.is_compat(must_version("0.6.9")))
+    assert(req.is_compat(must_version("0.7.0")))
+    assert(req.is_compat(must_version("0.7.5")))
+    assert(req.is_compat(must_version("0.8.0")))
+    assert(!req.is_compat(must_version("0.8.1")))
+
+    let min_only = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\"}}}")
+    assert(!min_only.is_compat(must_version("0.6.9")))
+    assert(min_only.is_compat(must_version("9.0.0")))
+}
+
+fn requirements() Map[vman.ValkRequire] {
+    return Map[vman.ValkRequire] {
+        "1.0.0" => require_from("{}"),
+        "1.1.0" => require_from("{\"require\":{\"valk\":{\"min\":\"0.6.0\"}}}"),
+        "1.2.0" => require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\"}}}"),
+        "2.0.0" => require_from("{\"require\":{\"valk\":{\"min\":\"0.8.0\"}}}")
+    }
+}
+
+fn require_lookup(v: vman.Version) vman.ValkRequire {
+    return requirements().get(v.name) !? vman.ValkRequire {}
+}
+
+fn select(mask: ?String, valk: ?String) ?vman.Version {
+    let versions = Array[vman.Version] {
+        must_version("1.2.0"), must_version("2.0.0"), must_version("1.0.0"), must_version("1.1.0")
+    }
+    let m: ?vman.Mask = null
+    if isset(mask) : m = must_mask(mask)
+    let v: ?vman.Version = null
+    if isset(valk) : v = must_version(valk)
+    return vman.select_version(versions, m, v, require_lookup) !? null
+}
+
+test "Require: selects the highest version the project valk supports" {
+    let highest = select(null, null)
+    assert(isset(highest))
+    if isset(highest) : assert(highest.name == "2.0.0")
+
+    let for_070 = select(null, "0.7.1")
+    assert(isset(for_070))
+    if isset(for_070) : assert(for_070.name == "1.2.0")
+
+    let for_060 = select("1.x", "0.6.4")
+    assert(isset(for_060))
+    if isset(for_060) : assert(for_060.name == "1.1.0")
+
+    let for_050 = select(null, "0.5.0")
+    assert(isset(for_050))
+    if isset(for_050) : assert(for_050.name == "1.0.0")
+
+    let masked = select("2.x", "0.9.0")
+    assert(isset(masked))
+    if isset(masked) : assert(masked.name == "2.0.0")
+}
+
+test "Require: reports why no version was selected" {
+    let versions = Array[vman.Version] { must_version("1.2.0"), must_version("2.0.0") }
+
+    let no_match = vman.select_version(versions, must_mask("3.x"), null, require_lookup) ! {
+        assert(E.code == E.none)
+        return
+    }
+    assert(false)
+}
+
+test "Require: reports incompatible versions" {
+    let versions = Array[vman.Version] { must_version("1.2.0"), must_version("2.0.0") }
+
+    vman.select_version(versions, must_mask("2.x"), must_version("0.7.1"), require_lookup) ! {
+        assert(E.code == E.incompatible)
+        return
+    }
+    assert(false)
+}

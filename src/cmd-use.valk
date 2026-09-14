@@ -33,6 +33,9 @@ fn cmd_use(args: Array[String], options: Array[String]) {
     //
     if ansi.supported() : println("# Switched to version: " + version.name.ansi.green())
     else : println("# Switched to version: " + version.name)
+
+    // Warn when project dependencies do not support this version
+    if fs.exists(Project.get_config_path()) : Project.load().check_dep_requirements(version)
 }
 
 fn is_installed(version: Version) bool {

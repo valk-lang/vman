@@ -27,6 +27,8 @@ fn cmd_package_install(args: Array[String], options: Array[String]) {
         // Success
         if ansi.supported() : println("# Package installed: " + pkg.id.to(String).ansi.green())
         else : println("# Package installed: " + pkg.id)
+        let require = pkg.require
+        if isset(require) && !require.is_any() : println("# Requires valk: " + require.str())
         return
     }
 
@@ -76,4 +78,25 @@ fn cmd_package_remove(args: Array[String], options: Array[String]) {
 
     deps.remove(name)
     fs.write(p.config_path, p.config.encode(true)) ! error("Failed to save file: " + p.config_path)
+}
+
+fn cmd_package_versions(args: Array[String]) {
+    let name = args.get(0) ! help(1)
+    let src = Source.new(name)
+    let versions = src.get_versions()
+    if versions.length == 0 : error("Package '%name' hasnt created any versions yet")
+
+    let repo_dir = fs.add(cache_repo_dir(), src.name)
+    ensure_repo(src, repo_dir)
+
+    // Mark compatibility when inside a project with a valk version
+    let valk: ?Version = null
+    if fs.exists(Project.get_config_path()) : valk = Project.load().valk_version()
+
+    if isset(valk) : println("# Versions of '%name' (project uses valk " + valk.name + ")")
+    else : println("# Versions of '%name'")
+
+    print_version_table(versions, valk, fn(v: Version) ValkRequire {
+        return require_at(repo_dir, v.hash)
+    })
 }
