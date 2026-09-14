@@ -8,25 +8,13 @@ fn require_from(text: String) vman.ValkRequire {
     return vman.ValkRequire.from_config(conf)
 }
 
-test "Require: parses the valk range from a package config" {
-    let both = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\",\"max\":\"0.8.0\"}}}")
-    let min = both.min
-    let max = both.max
+test "Require: parses the minimum valk version from a package config" {
+    let req = require_from("{\"name\":\"pkg\",\"require\":{\"valk\":{\"min\":\"v0.6.3\"}}}")
+    let min = req.min
     assert(isset(min))
-    assert(isset(max))
-    if isset(min) : assert(min == must_version("0.7.0"))
-    if isset(max) : assert(max == must_version("0.8.0"))
-    assert(!both.is_any())
-    assert(both.str() == "0.7.0 - 0.8.0")
-
-    let only_min = require_from("{\"name\":\"pkg\",\"require\":{\"valk\":{\"min\":\"v0.6.3\"}}}")
-    assert(isset(only_min.min))
-    assert(!isset(only_min.max))
-    assert(only_min.str() == ">= 0.6.3")
-
-    let only_max = require_from("{\"require\":{\"valk\":{\"max\":\"0.9.9\"}}}")
-    assert(!isset(only_max.min))
-    assert(only_max.str() == "<= 0.9.9")
+    if isset(min) : assert(min == must_version("0.6.3"))
+    assert(!req.is_any())
+    assert(req.str() == ">= 0.6.3")
 }
 
 test "Require: missing or invalid requirements allow any version" {
@@ -40,17 +28,12 @@ test "Require: missing or invalid requirements allow any version" {
     assert(invalid.is_any())
 }
 
-test "Require: checks the range boundaries" {
-    let req = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\",\"max\":\"0.8.0\"}}}")
+test "Require: checks the minimum boundary" {
+    let req = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\"}}}")
     assert(!req.is_compat(must_version("0.6.9")))
     assert(req.is_compat(must_version("0.7.0")))
     assert(req.is_compat(must_version("0.7.5")))
-    assert(req.is_compat(must_version("0.8.0")))
-    assert(!req.is_compat(must_version("0.8.1")))
-
-    let min_only = require_from("{\"require\":{\"valk\":{\"min\":\"0.7.0\"}}}")
-    assert(!min_only.is_compat(must_version("0.6.9")))
-    assert(min_only.is_compat(must_version("9.0.0")))
+    assert(req.is_compat(must_version("9.0.0")))
 }
 
 fn requirements() Map[vman.ValkRequire] {

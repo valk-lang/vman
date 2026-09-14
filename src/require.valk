@@ -4,11 +4,10 @@ use valk.core
 
 error SelectError (none, incompatible)
 
-// The valk compiler range a package declares in its valk.json:
-// { "require": { "valk": { "min": "0.7.0", "max": "0.8.0" } } }
+// The lowest valk compiler version a package declares in its valk.json:
+// { "require": { "valk": { "min": "0.7.0" } } }
 class ValkRequire {
     min: ?Version (null)
-    max: ?Version (null)
 
     static fn from_config(conf: json.Value) SELF {
         let req = conf.get("require").get("valk")
@@ -19,33 +18,22 @@ class ValkRequire {
             if !isset(v) : warn("Invalid 'require.valk.min' version: " + min)
             res.min = v
         }
-        let max = req.get("max").string
-        if !max.is_empty() {
-            let v = Version.new(max) !? null
-            if !isset(v) : warn("Invalid 'require.valk.max' version: " + max)
-            res.max = v
-        }
         return res
     }
 
     fn is_any() bool {
-        return !isset(this.min) && !isset(this.max)
+        return !isset(this.min)
     }
 
     fn is_compat(v: Version) bool {
         let min = this.min
         if isset(min) && v < min : return false
-        let max = this.max
-        if isset(max) && v > max : return false
         return true
     }
 
     + fn str() String $to {
         let min = this.min
-        let max = this.max
-        if isset(min) && isset(max) : return min.name + " - " + max.name
         if isset(min) : return ">= " + min.name
-        if isset(max) : return "<= " + max.name
         return "any"
     }
 }

@@ -17,16 +17,16 @@ repo-dir: ~/.vman/repos/{platform}.{user/vendorname}.{pkgname}, the cloned packa
 
 project-valk-version: the "use" version in the project valk.json (null if missing)
 
-valk-requirement: the valk version range a package declares in its own valk.json, both bounds optional and inclusive, no block means any version
+valk-requirement: the lowest valk version a package declares in its own valk.json, no block means any version
 ```
-{ "require": { "valk": { "min": "0.7.0", "max": "0.8.0" } } }
+{ "require": { "valk": { "min": "0.7.0" } } }
 ```
 
 ## Valk requirements
 
 - the requirement of a package version is read from the valk.json at that version's commit: `git show {hash}:valk.json` in the repo-dir (no valk.json or invalid json -> any version)
 - before reading requirements, clone the repo-dir if missing, otherwise `git fetch --tags` (once per run)
-- an invalid "min" or "max" version prints a warning and is ignored
+- an invalid "min" version prints a warning and is ignored
 - "check requirements": for every dependency with a "current" version (or a local directory src), read the valk.json in its package-dir (or directory) and print a warning when its requirement does not include the project-valk-version (skip if no project-valk-version)
 
 ## vman install

@@ -50,17 +50,15 @@ vman -h
 
 ## Compiler version requirements
 
-A package declares which valk versions it supports in its `valk.json`. Both
-bounds are optional and inclusive; a package without a `require` block supports
-every version.
+A package declares the lowest valk version it supports in its `valk.json`. A
+package without a `require` block supports every version.
 
 ```json
 {
     "name": "mysql",
     "require": {
         "valk": {
-            "min": "0.7.0",
-            "max": "0.8.0"
+            "min": "0.7.0"
         }
     }
 }
@@ -68,7 +66,7 @@ every version.
 
 `vman install {pkg}` reads this from every tagged version and installs the
 highest one matching the version mask that supports the `use` version of the
-project. `vman versions {pkg}` lists every tagged version with its range, and
+project. `vman versions {pkg}` lists every tagged version with its requirement, and
 `vman use` / `vman install` warn when an installed dependency does not support
 the project's valk version.
 
