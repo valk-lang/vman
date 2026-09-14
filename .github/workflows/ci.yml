@@ -105,9 +105,8 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          $sources = @(Get-ChildItem src/*.valk,src/tests/*.valk | ForEach-Object { $_.FullName })
           New-Item -ItemType Directory -Force debug | Out-Null
-          & ~/.vman/bin/valk build $sources --test -o debug/vman-tests.exe --def "VERSION=0.0.3"
+          & ~/.vman/bin/valk build ./tests --test -o debug/vman-tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           & ./debug/vman-tests.exe
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

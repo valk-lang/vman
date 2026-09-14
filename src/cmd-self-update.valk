@@ -1,7 +1,7 @@
 
-use valk:http
-use valk:fs
-use valk:core
+use valk.http
+use valk.fs
+use valk.core
 
 fn self_update() {
     fetch(false)
@@ -19,42 +19,43 @@ fn self_update() {
     let url = cdn_host() + "/releases/vman/vman-" + get_os() + "-" + get_arch() + ".tar.gz"
 
     // Download
-    let options = http:Options {
-        output_to_file: tmp_path
+    let out = fs.stream(tmp_path, fs.OpenOptions { read: false, write: fs.WriteMode.truncate, create: true }) ! error("Failed to create file: " + tmp_path)
+    let options = http.Options {
+        output: out
     }
 
-    let req = http:create_request("GET", url, options) ! {
+    let req = http.create_request("GET", url, options) ! {
         if E.code == E.invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
     while req.progress() ! {
-        print("\n")
-        println(req.recv_buffer)
-        match E.code {
-            E.disconnected => error("Failed to download: " + url)
-            default => error("Invalid response from: " + url)
-        }
+        print("
+")
+        out.close() _
+        if E.code == E.disconnected : error("Failed to download: " + url)
+        error("Invalid response from: " + url)
     } {
-        print("\r# Download progress: " + req.recv_percent + "%")
+        print("# Download progress: " + req.recv_percent + "%")
     }
+    out.close() ! error("Failed to write file: " + tmp_path)
     let response = req.response() ! error("Failed to receive update response: " + url)
     if response.status != 200 : error("Latest vman version is unavailable (HTTP " + response.status.to(String) + "): " + url)
     print("\n")
     println("# Download complete: " + to_path)
 
     // Move
-    fs:move(tmp_path, to_path) _
+    fs.move(tmp_path, to_path) _
 
     // Unpack
     let vdir = vman_dir()
     println("# Unpacking files to: " + vdir)
-    #if OS == win
+    #if OS == "win"
     let cmd = "tar -xzf \"" + to_path + "\" -C \"" + vdir + "\""
     cmd = cmd.replace("\\", "/")
-    core:exec(cmd)
+    core.exec(cmd)
     #else
-    core:exec("tar -xzf \"" + to_path + "\" -C \"" + vdir + "\"")
+    core.exec("tar -xzf \"" + to_path + "\" -C \"" + vdir + "\"")
     #end
 
     msg_uptodate()

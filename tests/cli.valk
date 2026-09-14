@@ -1,20 +1,20 @@
 
-use main
+use vman
 
 @ignore_access
 
 test "CLI: extracts options without disturbing arguments" {
     let args = Array[String] { "vman", "install", "-h", "pkg", "--force" }
-    let options = main:extract_options(args)
+    let options = vman.extract_options(args)
     assert(options == Array[String] { "-h", "--force" })
     assert(args == Array[String] { "vman", "install", "pkg" })
 }
 
 test "CLI: quotes shell arguments" {
-    #if OS == win
-    assert(main:shell_quote("repo path") == "\"repo path\"")
+    #if OS == "win"
+    assert(vman.shell_quote("repo path") == "\"repo path\"")
     #else
-    assert(main:shell_quote("repo path") == "'repo path'")
-    assert(main:shell_quote("it's") == "'it'\\''s'")
+    assert(vman.shell_quote("repo path") == "'repo path'")
+    assert(vman.shell_quote("it's") == "'it'\\''s'")
     #end
 }

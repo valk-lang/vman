@@ -1,7 +1,7 @@
 
-use valk:json
-use valk:fs
-use valk:core
+use valk.json
+use valk.fs
+use valk.core
 
 class Package {
     project: Project
@@ -14,7 +14,7 @@ class Package {
     src: Source
     ver: Version
     mask: ?Mask (null)
-    conf: ?json:Value (null)
+    conf: ?json.Value (null)
 
     static fn init(project: Project, name: String, request: ?String) Package {
 
@@ -29,17 +29,17 @@ class Package {
             error("Package '%name' has no versions matching: " + mask.name)
         }
 
-        let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())
-        let ver_dir = fs:add(pkg_dir, ver.name)
+        let pkg_dir = fs.add(project.vendor_dir, src.assoc_name())
+        let ver_dir = fs.add(pkg_dir, ver.name)
 
         return Package {
             project: project
             name: name
             dot_name: src.name
-            id: fs:add(src.name, ver.name)
+            id: fs.add(src.name, ver.name)
             pkg_dir: pkg_dir
             ver_dir: ver_dir
-            repo_dir: fs:add(cache_repo_dir(), src.name)
+            repo_dir: fs.add(cache_repo_dir(), src.name)
             src: src
             ver: ver
             mask: mask
@@ -52,17 +52,17 @@ class Package {
         let ver = version
         ver.hash = hash
 
-        let pkg_dir = fs:add(project.vendor_dir, src.assoc_name())
-        let ver_dir = fs:add(pkg_dir, ver.name)
+        let pkg_dir = fs.add(project.vendor_dir, src.assoc_name())
+        let ver_dir = fs.add(pkg_dir, ver.name)
 
         return Package {
             project: project
             name: name
             dot_name: src.name
-            id: fs:add(src.name, ver.name)
+            id: fs.add(src.name, ver.name)
             pkg_dir: pkg_dir
             ver_dir: ver_dir
-            repo_dir: fs:add(cache_repo_dir(), src.name)
+            repo_dir: fs.add(cache_repo_dir(), src.name)
             src: src
             ver: ver
             mask: null
@@ -70,7 +70,7 @@ class Package {
     }
 
     fn installed() bool {
-        return fs:exists(this.ver_dir)
+        return fs.exists(this.ver_dir)
     }
     fn install() {
         this.install_repo()
@@ -83,31 +83,31 @@ class Package {
         // Fetch
         let quoted_repo_dir = shell_quote(repo_dir)
         let cmd = "git -C %quoted_repo_dir fetch"
-        let fetch_code, _ = core:exec(cmd)
+        let fetch_code, _ = core.exec(cmd)
         if fetch_code == 127 : error("Git is not installed")
         if fetch_code != 0 : error("Failed to fetch package repository: %cmd")
 
         // Checkout commit
         cmd = "git -C %quoted_repo_dir checkout " + shell_quote(hash)
-        let checkout_code, _ = core:exec(cmd)
+        let checkout_code, _ = core.exec(cmd)
         if checkout_code != 0 : error("Package commit not found: %hash")
 
         // Copy files to the version directory
-        let files = fs:files_in(repo_dir, false)
-        if !fs:exists(this.pkg_dir) : fs:mkdir(this.pkg_dir) ! error("Failed to create directory: " + this.pkg_dir)
-        if !fs:exists(dest_dir) : fs:mkdir(dest_dir) ! error("Failed to create directory: " + dest_dir)
+        let files = fs.files_in(repo_dir, false) ! error("Failed to read directory")
+        if !fs.exists(this.pkg_dir) : fs.create_dir(this.pkg_dir) ! error("Failed to create directory: " + this.pkg_dir)
+        if !fs.exists(dest_dir) : fs.create_dir(dest_dir) ! error("Failed to create directory: " + dest_dir)
         each files as file {
-            let fn = fs:basename(file)
+            let fn = fs.basename(file)
             if fn == ".git" : continue
-            fs:copy(file, fs:add(dest_dir, fn), true) _
+            fs.copy(file, fs.add(dest_dir, fn), true) _
         }
     }
     fn install_repo() {
         let dir = this.repo_dir
-        if fs:exists(dir) : return
+        if fs.exists(dir) : return
         let url = this.clone_url()
         let cmd = "git clone " + shell_quote(url) + " " + shell_quote(dir)
-        let code, _ = core:exec(cmd)
+        let code, _ = core.exec(cmd)
         if code != 0 : error("Failed to clone package: %cmd")
     }
 
@@ -115,13 +115,13 @@ class Package {
         return "https://github.com/%{this.src.user_name}/%{this.src.repo_name}.git"
     }
 
-    fn config() json:Value {
+    fn config() json.Value {
         let conf = this.conf
         if isset(conf) : return conf
 
-        let path = fs:add(this.repo_dir, "valk.json")
-        let str = fs:read(path) ! error("Package is missing a valk.json config: " + path)
-        conf = json:decode(str) ! error("Invalid json syntax in config: " + path)
+        let path = fs.add(this.repo_dir, "valk.json")
+        let str = fs.read(path) ! error("Package is missing a valk.json config: " + path)
+        conf = json.decode(str) ! error("Invalid json syntax in config: " + path)
 
         this.conf = conf
         return conf

@@ -1,8 +1,8 @@
 
-use valk:ansi
+use valk.ansi
 
 fn emo(emo: String, alt: String) String {
-    return ansi:supported() ? emo : alt
+    return ansi.supported() ? emo : alt
 }
 
 fn main(args: Array[String]) {

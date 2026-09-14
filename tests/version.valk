@@ -1,10 +1,10 @@
 
-use main
+use vman
 
 @ignore_access
 
 fn version_is_invalid(name: String) bool {
-    main:Version.new(name) ! {
+    vman.Version.new(name) ! {
         return E.code == E.invalid
     }
     return false
@@ -48,7 +48,7 @@ test "Version: compares each component in order" {
 }
 
 test "Version: sorts in semantic order" {
-    let versions = Array[main:Version] {
+    let versions = Array[vman.Version] {
         must_version("2.0.0"),
         must_version("1.10.0"),
         must_version("1.2.9"),

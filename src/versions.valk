@@ -1,32 +1,32 @@
 
-use valk:json
-use valk:fs
-use valk:ansi
+use valk.json
+use valk.fs
+use valk.ansi
 
 class Versions {
     vman_latest: Version
     vman_current: Version
-    valk: json:Value
+    valk: json.Value
 }
 
 class ReleaseVersions {
     vman_latest: ?Version
-    valk: json:Value
+    valk: json.Value
 }
 
-fn release_channel(data: json:Value, name: String, channel: String) ?Version {
-    let value = data.get(name).get(channel).string()
+fn release_channel(data: json.Value, name: String, channel: String) ?Version {
+    let value = data.get(name).get(channel).string
     if value.is_empty() : return null
     return Version.new(value) ! return null
 }
 
-fn release_channel_or_default(data: json:Value, name: String, channel: String) ?Version {
+fn release_channel_or_default(data: json.Value, name: String, channel: String) ?Version {
     let version = release_channel(data, name, channel)
     if isset(version) : return version
     return release_channel(data, name, "default")
 }
 
-fn parse_release_versions(data: json:Value) ReleaseVersions {
+fn parse_release_versions(data: json.Value) ReleaseVersions {
     let valk = data.get("valk")
     return ReleaseVersions {
         vman_latest: release_channel_or_default(data, "vman", "latest")
@@ -36,8 +36,8 @@ fn parse_release_versions(data: json:Value) ReleaseVersions {
 
 fn get_versions() Versions {
     let path = versions_json_path()
-    let data = fs:read(path) !? "{}"
-    let conf = json:decode(data) !? json:new_object()
+    let data = fs.read(path) !? "{}"
+    let conf = json.decode(data) !? json.new_object()
 
     let release = parse_release_versions(conf)
     let vman_latest = release.vman_latest
@@ -55,20 +55,20 @@ fn fetch(ignore_cache: bool) {
     let path = versions_json_path()
     if ignore_cache {
         let data = cdn_get_versions() ! error("Failed to fetch versions from CDN")
-        fs:write(path, data.encode(true)) ! error("Failed to save versions: " + path)
+        fs.write(path, data.encode(true)) ! error("Failed to save versions: " + path)
     } else {
         let data = fetch_versions_cached() ! error("Failed to fetch versions from CDN")
-        fs:write(path, data.encode(true)) ! error("Failed to save versions: " + path)
+        fs.write(path, data.encode(true)) ! error("Failed to save versions: " + path)
     }
 }
 
 fn resolve_valk_version(vv: Versions, requested: String) Version {
     if requested == "default" {
-        let value = vv.valk.get("default").string()
+        let value = vv.valk.get("default").string
         if value.is_empty() : error("vman was unable to find the default valk version")
         return Version.new(value) ! error("Invalid version for valk channel 'default': " + value)
     }
-    let value = vv.valk.get(requested).string()
+    let value = vv.valk.get(requested).string
     if !value.is_empty() : return Version.new(value) ! error("Invalid version for valk channel '" + requested + "': " + value)
     return Version.new(requested) ! error("vman was unable to find the valk version channel: " + requested)
 }
@@ -79,7 +79,7 @@ fn vman_is_up_to_date(vv: Versions) bool {
 
 fn check_vman_versions(vv: Versions) {
     if vman_is_up_to_date(vv) {
-        if ansi:supported() : println("# vman is " + "up-to-date".ansi.green())
+        if ansi.supported() : println("# vman is " + "up-to-date".ansi.green())
         else : println("# vman is " + "up-to-date")
     } else {
         println("# There is a new vman version available: " + vv.vman_latest.name)
@@ -88,10 +88,10 @@ fn check_vman_versions(vv: Versions) {
 }
 
 fn get_version_from_config() Version {
-    let path = fs:cwd() + div() + "valk.json"
-    let data = fs:read(path) ! error("No config found: " + path)
-    let config = json:decode(data) ! error("Invalid json in: " + path)
-    let value = config.get("use").string()
+    let path = (fs.cwd() ! error("Failed to get current directory")) + div() + "valk.json"
+    let data = fs.read(path) ! error("No config found: " + path)
+    let config = json.decode(data) ! error("Invalid json in: " + path)
+    let value = config.get("use").string
     if value.is_empty() : error("No version specified in: " + path)
     return Version.new(value) ! error("Invalid version in: " + path)
 }

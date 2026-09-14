@@ -1,5 +1,5 @@
 
-use valk:json
+use valk.json
 
 error SourceError (none)
 
@@ -8,7 +8,7 @@ enum SRC {
 }
 
 class Source {
-    type: int
+    type: SRC
     name: String
     user_name: String ("")
     repo_name: String ("")
@@ -18,7 +18,7 @@ class Source {
         if !name.starts_with("github.com/") : error("Unknown source: " + name + ", package names must be with 'github.com/'.")
         if !is_valid_source_name(name) : error("Invalid github package name: " + name)
 
-        let project = name.part("github.com/".length, name.length)
+        let project = name.range("github.com/".length, name.length - "github.com/".length)
         let split = project.split("/")
         let user = split.get(0) ! error("Missing user name")
         let repo = split.get(1) ! error("Missing repo name")
@@ -31,7 +31,7 @@ class Source {
         }
     }
 
-    fn str() String $to {
+    + fn str() String $to {
         return this.name
     }
 
@@ -53,18 +53,18 @@ class Source {
         // if isset(cache_vv) : return cache_vv
         // 
         let versions = Array[Version]{}
-        let data: json:Value = json:new_array()
+        let data: json.Value = json.new_array()
         if this.type == SRC.github {
             data = github_req("GET", "/repos/" + this.user_name + "/" + this.repo_name + "/tags") ! {
                 error("Package not found: " + this.name)
             }
         }
-        let tags = data.array().values
+        let tags = data.array.values
         each tags as tag {
 
-            let name = tag.get("name").string()
+            let name = tag.get("name").string
             let v = Version.new(name) ! continue
-            let hash = tag.get("commit").get("sha").string()
+            let hash = tag.get("commit").get("sha").string
             if hash.is_empty() {
                 warn("Missing version commit hash for version: " + name)
                 continue
@@ -111,7 +111,7 @@ fn is_valid_source_component(value: String) bool {
 
 fn is_valid_source_name(name: String) bool {
     if !name.starts_with("github.com/") : return false
-    let project = name.part("github.com/".length, name.length)
+    let project = name.range("github.com/".length, name.length - "github.com/".length)
     let split = project.split("/")
     if split.length != 2 : return false
     let user = split.get(0) !? ""

@@ -1,18 +1,18 @@
 
-use valk:http
-use valk:fs
-use valk:core
+use valk.http
+use valk.fs
+use valk.core
 
 fn cdn_host() String {
     return "https://files.valk-cdn.dev"
 }
 
 fn get_os() String {
-    #if OS == win
+    #if OS == "win"
     return "win"
-    #elif OS == linux
+    #elif OS == "linux"
     return "linux"
-    #elif OS == macos
+    #elif OS == "macos"
     return "macos"
     #else
     return "unknown"
@@ -20,9 +20,9 @@ fn get_os() String {
 }
 
 fn get_arch() String {
-    #if ARCH == x64
+    #if ARCH == "x64"
     return "x64"
-    #elif ARCH == arm64
+    #elif ARCH == "arm64"
     return "arm64"
     #else
     return "unknown"
@@ -30,7 +30,7 @@ fn get_arch() String {
 }
 
 fn get_pack_ext() String {
-    #if OS == win
+    #if OS == "win"
     return "zip"
     #else
     return "tar.gz"
@@ -41,21 +41,21 @@ fn download_and_unzip_version(v: Version) {
     let vdir = version_dir(v)
     let to_path = downloads_dir() + "valk-"+ v.name +"-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
     download_version(v, to_path)
-    if !fs:exists(vdir) : fs:mkdir(vdir) ! error("Failed to create directory: " + vdir)
+    if !fs.exists(vdir) : fs.create_dir(vdir) ! error("Failed to create directory: " + vdir)
     // Unpack
     println("# Unpacking files to: " + vdir)
-    #if OS == win
+    #if OS == "win"
     let cmd = "tar -xzf \"" + to_path + "\" -C \"" + vdir + "\""
     cmd = cmd.replace("\\", "/")
-    core:exec(cmd)
+    core.exec(cmd)
     #else
-    core:exec("tar -xzf \"" + to_path + "\" -C \"" + vdir + "\"")
+    core.exec("tar -xzf \"" + to_path + "\" -C \"" + vdir + "\"")
     #end
 }
 
 fn download_version(v: Version, to_path: String) {
 
-    if fs:exists(to_path) : return
+    if fs.exists(to_path) : return
 
     let url = cdn_host() + "/releases/valk/" + v.name + "/valk-" + v.name + "-" + get_os() + "-" + get_arch() + "." + get_pack_ext()
 
@@ -63,29 +63,30 @@ fn download_version(v: Version, to_path: String) {
 
     let tmp_path = to_path + ".tmp"
 
-    let options = http:Options {
-        output_to_file: tmp_path
+    let out = fs.stream(tmp_path, fs.OpenOptions { read: false, write: fs.WriteMode.truncate, create: true }) ! error("Failed to create file: " + tmp_path)
+    let options = http.Options {
+        output: out
     }
 
-    let req = http:create_request("GET", url, options) ! {
+    let req = http.create_request("GET", url, options) ! {
         if E.code == E.invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
     while req.progress() ! {
-        print("\n")
-        println(req.recv_buffer)
-        match E.code {
-            E.disconnected => error("Failed to download: " + url)
-            default => error("Invalid response from: " + url)
-        }
+        print("
+")
+        out.close() _
+        if E.code == E.disconnected : error("Failed to download: " + url)
+        error("Invalid response from: " + url)
     } {
-        print("\r# Download progress: " + req.recv_percent + "%")
+        print("# Download progress: " + req.recv_percent + "%")
     }
+    out.close() ! error("Failed to write file: " + tmp_path)
     let response = req.response() ! error("Failed to receive download response: " + url)
     if response.status != 200 : error("Version does not exist or download failed (HTTP " + response.status.to(String) + "): " + url)
     print("\n")
     println("# Download complete: " + to_path)
 
-    fs:move(tmp_path, to_path) _
+    fs.move(tmp_path, to_path) _
 }

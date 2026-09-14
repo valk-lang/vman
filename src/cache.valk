@@ -1,24 +1,24 @@
 
-use valk:json
-use valk:fs
+use valk.json
+use valk.fs
 
 global cache : ?Cache (null)
 
 class Cache {
-    data: json:Value
+    data: json.Value
 
     static fn path() String {
-        return fs:add(vman_dir(), "cache.json")
+        return fs.add(vman_dir(), "cache.json")
     }
     static fn get() Cache {
         let c = cache
         if isset(c) : return c
         let path = SELF.path()
-        if !fs:exists(path) : fs:write(path, "{}") _
-        let str = fs:read(path) ! error("Failed to read cache file: " + path)
-        let data = json:decode(str) !? <{
+        if !fs.exists(path) : fs.write(path, "{}") _
+        let str = fs.read(path) ! error("Failed to read cache file: " + path)
+        let data = json.decode(str) !? <{
             warn("Invalid json in cache")
-            return json:new_object()
+            return json.new_object()
         }
         let result = Cache{
             data: data
@@ -28,6 +28,6 @@ class Cache {
     }
     fn save() {
         let path = SELF.path()
-        fs:write(path, this.data.encode(true)) ! warn("Failed to update cache: " + path)
+        fs.write(path, this.data.encode(true)) ! warn("Failed to update cache: " + path)
     }
 }

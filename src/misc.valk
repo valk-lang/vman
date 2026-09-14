@@ -1,6 +1,6 @@
 
 fn valk_exe() String {
-    #if OS == win
+    #if OS == "win"
     return "valk.exe"
     #else
     return "valk"
@@ -8,7 +8,7 @@ fn valk_exe() String {
 }
 
 fn vman_exe() String {
-    #if OS == win
+    #if OS == "win"
     return "vman.exe"
     #else
     return "vman"
@@ -16,7 +16,7 @@ fn vman_exe() String {
 }
 
 fn shell_quote(value: String) String {
-    #if OS == win
+    #if OS == "win"
     return "\"" + value + "\""
     #else
     return "'" + value.replace("'", "'\\''") + "'"

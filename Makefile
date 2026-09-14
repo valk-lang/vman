@@ -14,7 +14,7 @@ win:
 
 test: 
 	mkdir -p debug
-	$(vc) build ./src/tests -o $(TEST_BIN) $(DEFS) --test
+	$(vc) build ./tests -o $(TEST_BIN) $(DEFS) --test
 	./$(TEST_BIN)
 
 clean:

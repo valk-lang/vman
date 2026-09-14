@@ -1,26 +1,26 @@
 
-use main
+use vman
 
 @ignore_access
 
 fn mask_is_invalid(name: String) bool {
-    main:Mask.new(name) ! {
+    vman.Mask.new(name) ! {
         return E.code == E.invalid
     }
     return false
 }
 
 test "Mask: recognizes wildcard syntax" {
-    assert(main:Mask.is_mask("x"))
-    assert(main:Mask.is_mask("1.x"))
-    assert(main:Mask.is_mask("1.2.x"))
-    assert(main:Mask.is_mask("1.x.3"))
-    assert(main:Mask.is_mask("x.x.x"))
+    assert(vman.Mask.is_mask("x"))
+    assert(vman.Mask.is_mask("1.x"))
+    assert(vman.Mask.is_mask("1.2.x"))
+    assert(vman.Mask.is_mask("1.x.3"))
+    assert(vman.Mask.is_mask("x.x.x"))
 
-    assert(!main:Mask.is_mask(""))
-    assert(!main:Mask.is_mask("1.2.3"))
-    assert(!main:Mask.is_mask("1.2.3.4"))
-    assert(!main:Mask.is_mask("1.y.3"))
+    assert(!vman.Mask.is_mask(""))
+    assert(!vman.Mask.is_mask("1.2.3"))
+    assert(!vman.Mask.is_mask("1.2.3.4"))
+    assert(!vman.Mask.is_mask("1.y.3"))
 }
 
 test "Mask: rejects invalid syntax" {

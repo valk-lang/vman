@@ -1,19 +1,19 @@
 
-use valk:ansi
+use valk.ansi
 
 fn error(msg: String) $exit {
-    if ansi:supported() : println("❌ " + msg)
+    if ansi.supported() : println("❌ " + msg)
     else : println("> Error: " + msg)
     exit(1)
 }
 
 fn warn(msg: String) {
-    if ansi:supported() : println("⚠️ " + msg)
+    if ansi.supported() : println("⚠️ " + msg)
     else : println("> Warn: " + msg)
 }
 
 
 fn msg_uptodate() {
-    if ansi:supported() : println("# vman is " + "up-to-date".ansi.green())
+    if ansi.supported() : println("# vman is " + "up-to-date".ansi.green())
     else : println("# vman is " + "up-to-date")
 }

@@ -1,23 +1,23 @@
 
-use valk:fs
-use valk:json
+use valk.fs
+use valk.json
 
 class Project {
     dir: String
     vendor_dir: String
     config_path: String
-    config: json:Value
+    config: json.Value
     packages: Map[Package] (.{})
 
     static fn new() SELF {
-        let dir = fs:cwd()
-        let vendor_dir = fs:add(dir, "vendor")
-        if !fs:is_dir(vendor_dir) : fs:mkdir(vendor_dir) ! error("Failed to create directory: " + vendor_dir)
+        let dir = (fs.cwd() ! error("Failed to get current directory"))
+        let vendor_dir = fs.add(dir, "vendor")
+        if !fs.is_dir(vendor_dir) : fs.create_dir(vendor_dir) ! error("Failed to create directory: " + vendor_dir)
         let config_path = SELF.get_config_path()
-        if !fs:exists(config_path) : error("No 'valk.json' config not found: " + config_path)
+        if !fs.exists(config_path) : error("No 'valk.json' config not found: " + config_path)
 
-        let str = fs:read(config_path) !? "{}"
-        let data = json:decode(str) ! error("Invalid json syntax in '%config_path'")
+        let str = fs.read(config_path) !? "{}"
+        let data = json.decode(str) ! error("Invalid json syntax in '%config_path'")
 
         return SELF {
             dir: dir
@@ -28,19 +28,19 @@ class Project {
     }
 
     static fn get_config_path() String {
-        let dir = fs:cwd()
-        if !fs:is_dir(dir) : fs:mkdir(dir) ! error("Failed to create directory: " + dir)
-        return fs:add(dir, "valk.json")
+        let dir = (fs.cwd() ! error("Failed to get current directory"))
+        if !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)
+        return fs.add(dir, "valk.json")
     }
 
     static fn init_config() {
         let path = SELF.get_config_path()
-        let exists = fs:exists(path)
-        let config: json:Value = json:new_object()
+        let exists = fs.exists(path)
+        let config: json.Value = json.new_object()
 
         if exists {
-            let data = fs:read(path) ! error("Failed to read: " + path)
-            config = json:decode(data) ! error("Invalid json syntax in '" + path + "'")
+            let data = fs.read(path) ! error("Failed to read: " + path)
+            config = json.decode(data) ! error("Invalid json syntax in '" + path + "'")
             if config.has("use") {
                 println("# Project already has a 'valk.json' config")
                 return
@@ -48,13 +48,13 @@ class Project {
         }
 
         let version = current_used_version()
-        if isset(version) : config = config.set("use", json:new_string(version.name))
+        if isset(version) : config = config.set("use", json.new_string(version.name))
         else if exists {
             println("# Project already has a 'valk.json' config")
             return
         }
 
-        fs:write(path, config.encode(true)) ! error("Failed to create: " + path)
+        fs.write(path, config.encode(true)) ! error("Failed to create: " + path)
     }
 
     fn add_pkg_to_config(pkg: Package, name: ?String) {
@@ -62,8 +62,8 @@ class Project {
         if !isset(name) {
             let n = pkg.src.repo_name
             let pkg_conf = pkg.config()
-            if pkg_conf.has("name") && is_valid_pkg_name(pkg_conf.get("name").string()) {
-                n = pkg_conf.get("name").string()
+            if pkg_conf.has("name") && is_valid_pkg_name(pkg_conf.get("name").string) {
+                n = pkg_conf.get("name").string
             }
             if !is_valid_pkg_name(n) : error("Please provide a package alias because the default is not a valid package name: " + n)
             name = n
@@ -73,31 +73,31 @@ class Project {
         let exists = deps.has(name)
         let dep = deps.get(name)
         if exists {
-            if dep.get("src").string() != pkg.name : error("Failed to add package to config. Name already used: " + name)
+            if dep.get("src").string != pkg.name : error("Failed to add package to config. Name already used: " + name)
         }
 
         dep = dep.remove("installed").remove("installed_hash").remove("update")
-        dep = dep.set("src", json:new_string(pkg.name))
-        dep = dep.set("current", json:new_string(pkg.ver.name))
-        dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
+        dep = dep.set("src", json.new_string(pkg.name))
+        dep = dep.set("current", json.new_string(pkg.ver.name))
+        dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
 
         let mask = pkg.mask
         if isset(mask) {
-            dep = dep.set("version", json:new_string(mask.name))
+            dep = dep.set("version", json.new_string(mask.name))
         } else {
-            dep = dep.set("version", json:new_string("x.x.x"))
+            dep = dep.set("version", json.new_string("x.x.x"))
         }
 
         deps = deps.set(name, dep)
         this.config = this.config.set("dependencies", deps)
 
-        fs:write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+        fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
     }
 
     fn install_packages() {
-        let deps = this.config.get("dependencies").object()
+        let deps = this.config.get("dependencies").object
 
-        if deps.length() == 0 {
+        if deps.length == 0 {
             println("# This project has no dependencies")
             return
         }
@@ -107,35 +107,35 @@ class Project {
                 continue
             }
 
-            let name = dep.get("src").string()
+            let name = dep.get("src").string
             if name.is_empty() : error("Valk.json invalid dependency 'src'")
 
             // Local directory dependencies are always present
-            if fs:is_dir(name) : continue
+            if fs.is_dir(name) : continue
 
             let installed: ?Version = null
-            let current = dep.get("current").string()
-            let hash = dep.get("current_hash").string()
+            let current = dep.get("current").string
+            let hash = dep.get("current_hash").string
             if !current.is_empty() && !hash.is_empty() {
                 installed = Version.new(current) ! error("Valk.json invalid version: " + current)
             }
 
-            let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string())
+            let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string)
 
             // Set/update the resolved version & hash in the config
-            dep = dep.set("current", json:new_string(pkg.ver.name))
-            dep = dep.set("current_hash", json:new_string(pkg.ver.hash))
+            dep = dep.set("current", json.new_string(pkg.ver.name))
+            dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
             // Every registry dependency has a mask; missing masks default to all versions
-            let ver_mask = dep.get("version").string()
+            let ver_mask = dep.get("version").string
             if ver_mask.is_empty() {
                 let m = pkg.mask
                 if isset(m) {
-                    dep = dep.set("version", json:new_string(m.name))
+                    dep = dep.set("version", json.new_string(m.name))
                 } else {
-                    dep = dep.set("version", json:new_string("x.x.x"))
+                    dep = dep.set("version", json.new_string("x.x.x"))
                 }
             }
-            deps = deps.set(key, dep)
+            deps.set(key, dep)
 
             // Install if the package-dir is missing
             if !pkg.installed() {
@@ -145,22 +145,22 @@ class Project {
         }
 
         this.config = this.config.set("dependencies", deps)
-        fs:write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+        fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
 
         println("# All dependencies have been installed")
     }
 
     fn clean_vendor() {
-        let deps = this.config.get("dependencies").object()
+        let deps = this.config.get("dependencies").object
 
         // Directories that are used by the config and must be preserved
         let protected = Array[String]{}
 
         // Map vendored package dir by its assoc name, used version
-        let pkg_dirs = fs:files_in(this.vendor_dir, false, false, true)
+        let pkg_dirs = fs.files_in(this.vendor_dir, false, false, true) ! error("Failed to read directory")
 
         each pkg_dirs as pkg_dir {
-            let pkg_name = fs:basename(pkg_dir)
+            let pkg_name = fs.basename(pkg_dir)
 
             // Collect every version current in the config that maps to this package
                 let used = Array[Version]{}
@@ -168,12 +168,12 @@ class Project {
                 let dep = deps.get(key) ! {
                     continue
                 }
-                let src = dep.get("src").string()
+                let src = dep.get("src").string
                 if src.is_empty() : continue
                 // Local directory dependencies have no vendored package dir
-                if fs:is_dir(src) : continue
+                if fs.is_dir(src) : continue
                 if Source.new(src).assoc_name() == pkg_name {
-                    let current = dep.get("current").string()
+                    let current = dep.get("current").string
                     if !current.is_empty() {
                         used.append(Version.new(current) ! error("Valk.json invalid version: " + current))
                     }
@@ -182,21 +182,21 @@ class Project {
 
             // No dependency uses this package -> delete the whole directory
             if used.length == 0 {
-                fs:delete_recursive(pkg_dir)
+                fs.delete_all(pkg_dir) ! error("Failed to delete: " + pkg_dir)
                 continue
             }
 
             // Delete version sub-directories that aren't a used version
-            let versions = fs:files_in(pkg_dir, false, false, true)
+            let versions = fs.files_in(pkg_dir, false, false, true) ! error("Failed to read directory")
             each versions as ver_dir {
-                let version = Version.new(fs:basename(ver_dir)) ! {
-                    fs:delete_recursive(ver_dir)
+                let version = Version.new(fs.basename(ver_dir)) ! {
+                    fs.delete_all(ver_dir) ! error("Failed to delete: " + ver_dir)
                     continue
                 }
                 if used.contains(version) {
                     protected.append(ver_dir)
                 } else {
-                    fs:delete_recursive(ver_dir)
+                    fs.delete_all(ver_dir) ! error("Failed to delete: " + ver_dir)
                 }
             }
         }
@@ -207,12 +207,12 @@ class Project {
 }
 
 fn remove_empty_dirs(dir: String, protected: Array[String]) {
-    let subdirs = fs:files_in(dir, false, false, true)
+    let subdirs = fs.files_in(dir, false, false, true) ! error("Failed to read directory")
     each subdirs as sub {
         if protected.contains(sub) : continue
         remove_empty_dirs(sub, protected)
-        if fs:is_dir(sub) && fs:files_in(sub).length == 0 {
-            fs:rmdir(sub) _
+        if fs.is_dir(sub) && (fs.files_in(sub) !? Array[String]{}).length == 0 {
+            fs.delete_dir(sub) _
         }
     }
 }

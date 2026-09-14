@@ -11,7 +11,7 @@ class Version {
 
     static fn new(name: String) SELF !VersionError {
         let v = name
-        if v.starts_with("v") || v.starts_with("V") : v = v.part(1, v.length)
+        if v.starts_with("v") || v.starts_with("V") : v = v.range(1, v.length - 1)
 
         // Store the normalized (v-stripped) value so every use is v-free
         let res = Version {
@@ -33,30 +33,30 @@ class Version {
         return res
     }
 
-    fn str() String $to {
+    + fn str() String $to {
         return this.name
     }
 
     // Compare
-    fn eq(v: Version) bool $eq {
+    + fn eq(v: Version) bool $eq {
         if this.name == v.name : return true
         if !this.can_compare || !v.can_compare : return false
         return this.n1 == v.n1 && this.n2 == v.n2 && this.n3 == v.n3
     }
-    fn lt(v: Version) bool $lt {
+    + fn lt(v: Version) bool $lt {
         if this.eq(v) : return false
         if !this.can_compare || !v.can_compare : return this.name < v.name
         if this.n1 != v.n1 : return this.n1 < v.n1
         if this.n2 != v.n2 : return this.n2 < v.n2
         return this.n3 < v.n3
     }
-    fn lte(v: Version) bool $lte {
+    + fn lte(v: Version) bool $lte {
         return this.lt(v) || this.eq(v)
     }
-    fn gt(v: Version) bool $gt {
+    + fn gt(v: Version) bool $gt {
         return v.lt(this)
     }
-    fn gte(v: Version) bool $gte {
+    + fn gte(v: Version) bool $gte {
         return this.gt(v) || this.eq(v)
     }
 }

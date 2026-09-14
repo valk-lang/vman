@@ -1,4 +1,4 @@
-use valk:fs
+use valk.fs
 
 fn cmd_clean(args: Array[String]) {
     let sub = args.get(0) ! error("vman clean requires a subcommand: 'packages' or 'cache'")
@@ -6,7 +6,7 @@ fn cmd_clean(args: Array[String]) {
     if sub == "packages" {
         // If inside a project with a config, clean unused vendor packages
         let config_path = Project.get_config_path()
-        if fs:exists(config_path) {
+        if fs.exists(config_path) {
             let p = Project.new()
             p.clean_vendor()
             println("# Cleaned vendor packages")
@@ -16,17 +16,17 @@ fn cmd_clean(args: Array[String]) {
     } else if sub == "cache" {
         // Clear the http request cache
         let cache_path = Cache.path()
-        if fs:exists(cache_path) : fs:delete(cache_path) _
+        if fs.exists(cache_path) : fs.delete_file(cache_path) _
         // Remove downloaded files
         let dir = downloads_dir()
-        fs:delete_recursive(dir)
-        fs:mkdir(dir) ! error("Failed to recreate downloads directory: " + dir)
+        fs.delete_all(dir) ! error("Failed to delete: " + dir)
+        fs.create_dir(dir) ! error("Failed to recreate downloads directory: " + dir)
         println("# Cleaned cache")
     } else if sub == "repos" {
         // Remove every cloned package repository
         let repos_dir = cache_repo_dir()
-        fs:delete_recursive(repos_dir)
-        fs:mkdir(repos_dir) ! error("Failed to recreate repos directory: " + repos_dir)
+        fs.delete_all(repos_dir) ! error("Failed to delete: " + repos_dir)
+        fs.create_dir(repos_dir) ! error("Failed to recreate repos directory: " + repos_dir)
         println("# Cleaned repos")
     } else {
         error("Unknown clean subcommand: '" + sub + "'. Use 'packages', 'cache' or 'repos'")
@@ -41,8 +41,8 @@ fn cmd_unuse(args: Array[String], options: Array[String]) {
 
     // Remove the installed toolchain version directory if it exists
     let dir = version_dir(version)
-    if fs:is_dir(dir) {
-        fs:delete_recursive(dir)
+    if fs.is_dir(dir) {
+        fs.delete_all(dir) ! error("Failed to delete: " + dir)
         println("# Removed version: " + version.name)
     } else {
         println("# Version not installed: " + version.name)
@@ -56,29 +56,29 @@ fn cmd_unuse(args: Array[String], options: Array[String]) {
 }
 
 fn current_used_version() ?Version {
-    #if OS == win
+    #if OS == "win"
     let link = bin_dir() + "valk.bat"
     #else
     let link = bin_dir() + valk_exe()
     #end
 
-    #if OS == win
-    let content = fs:read(link) ! return null
+    #if OS == "win"
+    let content = fs.read(link) ! return null
     let target = content.split("\"").get(1) ! return null
     #else
-    let target = fs:realpath(link)
+    let target = fs.realpath(link) ! return null
     #end
     if !target.starts_with(versions_dir()) : return null
 
-    return Version.new(fs:basename(fs:dir_of(target))) ! return null
+    return Version.new(fs.basename(fs.dir_of(target))) ! return null
 }
 
 fn remove_current_link() {
-    #if OS == win
+    #if OS == "win"
     let link = bin_dir() + "valk.bat"
     #else
     let link = bin_dir() + valk_exe()
     #end
     // unlink removes the symlink itself, even when its target is gone (dangling)
-    fs:delete(link) ! warn("Failed to remove link: " + link)
+    fs.delete_file(link) ! warn("Failed to remove link: " + link)
 }

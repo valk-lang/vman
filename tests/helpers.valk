@@ -1,0 +1,18 @@
+
+use vman
+
+@ignore_access
+
+fn must_version(name: String) vman.Version {
+    return vman.Version.new(name) ! {
+        assert(false)
+        return vman.Version { name: name }
+    }
+}
+
+fn must_mask(name: String) vman.Mask {
+    return vman.Mask.new(name) ! {
+        assert(false)
+        return vman.Mask { name: name n1_any: true n2_any: true n3_any: true }
+    }
+}
