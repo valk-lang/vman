@@ -17,7 +17,7 @@ vman -h
 
 ```
 ---------------------------
- Valk package manager 0.1.1
+ Valk package manager 0.1.2
 ---------------------------
 
 📦 Package commands
