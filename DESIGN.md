@@ -13,6 +13,22 @@ DO NOT MODIFY THIS FILE
 
 package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./vendor/github-someuser-somepkg/0.0.1)
 
+repo-dir: ~/.vman/repos/{platform}.{user/vendorname}.{pkgname}, the cloned package repository
+
+project-valk-version: the "use" version in the project valk.json (null if missing)
+
+valk-requirement: the valk version range a package declares in its own valk.json, both bounds optional and inclusive, no block means any version
+```
+{ "require": { "valk": { "min": "0.7.0", "max": "0.8.0" } } }
+```
+
+## Valk requirements
+
+- the requirement of a package version is read from the valk.json at that version's commit: `git show {hash}:valk.json` in the repo-dir (no valk.json or invalid json -> any version)
+- before reading requirements, clone the repo-dir if missing, otherwise `git fetch --tags` (once per run)
+- an invalid "min" or "max" version prints a warning and is ignored
+- "check requirements": for every dependency with a "current" version (or a local directory src), read the valk.json in its package-dir (or directory) and print a warning when its requirement does not include the project-valk-version (skip if no project-valk-version)
+
 ## vman install
 
 - reads project config (valk.json)
@@ -26,17 +42,27 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 --- check if version is installed by checking if the 'pacakge-dir' exists
 --- if not, clone repo to ~/.vman/repos, checkout the hash (error if doesnt exist), copy files to the 'package-dir'
 - save config
+- check requirements
 - success msg
 
 ## vman install {name} [{version-mask}]
 
 - if no version-mask, use x.x.x
-- fetch latest version/hash from repo tags that matches version-mask
+- fetch the versions/hashes from the repo tags (error if none)
+- select the highest version that matches the version-mask (error if none match)
+-- if there is a project-valk-version: select the highest matching version whose valk-requirement includes it (if none, print the matching versions with their requirements and error)
 - clone repo to ~/.vman/repos if not exists, checkout the hash, copy files to the 'package-dir'
 - store version-mask in "version"
 - store version in "current" & hash in "current_hash"
 - save config
-- success msg
+- success msg, followed by the valk-requirement of the installed version if it's not "any"
+
+## vman versions {name}
+
+- fetch the versions/hashes from the repo tags (error if none)
+- clone/fetch the repo-dir
+- print every version, highest first, with its valk-requirement
+- if inside a project with a project-valk-version: mark every version as compatible or incompatible with it
 
 ## vman update
 
@@ -75,6 +101,7 @@ package-dir: ./vendor/{platform}-{user/vendorname}-{pkgname}/{version} (e.g. ./v
 - if not installed: print installing msg, download the valk archive from https://files.valk-cdn.dev/releases/valk/{version}/... (skip download if the archive already exists in ~/.vman/downloads), then unzip into ~/.vman/versions/{version}
 - create the symbolic link ~/.vman/bin/valk -> ~/.vman/versions/{version}/valk (remove any existing link, including dangling ones)
 - success msg
+- if ./valk.json exists: check requirements against the switched-to version
 
 ## vman unuse {version}
 
