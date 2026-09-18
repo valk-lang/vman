@@ -1,0 +1,50 @@
+/// A switch: `--verbose`, or `-v`. It takes no value, and is either given or not.
++ class Flag {
+    /// The long name, written as `--name`.
+    + long: String
+    /// The single letter form, written as `-n`, or "" when it has none.
+    + short: String ("")
+    /// One line for the help text.
+    + help: String ("")
+    /// An environment variable that turns the flag on when it is `1`, `true`, `yes` or `on`.
+    + env: String ("")
+}
+
+/// An option that takes a value: `--output file`, `--output=file`, or `-o file`.
++ class Option {
+    /// The long name, written as `--name`.
+    + long: String
+    /// The single letter form, written as `-n`, or "" when it has none.
+    + short: String ("")
+    /// One line for the help text.
+    + help: String ("")
+    /// The value used when the option is not given.
+    + default: String ("")
+    /// The word for the value in the help text, such as `file` in `--output <file>`.
+    + placeholder: String ("value")
+    /// An environment variable read when the option is not given.
+    + env: String ("")
+    /// Whether leaving it out is an error.
+    + required: bool (false)
+    /// Whether it may be given several times, collecting every value.
+    + repeated: bool (false)
+    /// The values the option allows, or empty when anything goes.
+    + choices: Array[String] (.{})
+    /// Lists the values a shell should offer for this option, given the words typed so far.
+    /// `choices` are offered without one.
+    + complete: ?fn(Array[String])(Array[String]) (null)
+}
+
+/// A value that is not written behind a name: `mytool build <target>`.
++ class Argument {
+    /// The name, used in the usage line and to read the value.
+    + name: String
+    /// One line for the help text.
+    + help: String ("")
+    /// Whether leaving it out is an error.
+    + required: bool (false)
+    /// Whether it takes everything that is left, as `<files...>` does.
+    + variadic: bool (false)
+    /// Lists the values a shell should offer for this argument, given the words typed so far.
+    + complete: ?fn(Array[String])(Array[String]) (null)
+}

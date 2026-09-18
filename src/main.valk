@@ -1,95 +1,168 @@
-
+use cli
 use valk.ansi
+use valk.fs
 
 fn emo(emo: String, alt: String) String {
     return ansi.supported() ? emo : alt
 }
 
 fn main(args: Array[String]) {
+    exit(build_app().run(args))
+}
 
-    let options = extract_options(args)
+/// The commands vman answers to. `main` runs it; a test reads it.
+fn build_app() cli.App {
+    let app = cli.App.new("vman", "Valk package manager", VERSION)
+    app.root.description = "Installs packages for a project, and the valk versions to build it with."
 
-    args.remove(0)
-    let action = args.get(0) ! help(0)
-    args.remove(0)
+    // Packages
+    let install = cli.Command.new("install", "Install the packages of this project, or add one")
+    install.argument("package", "A package such as github.com/user/repo; left out, every dependency of the project", false)
+    install.argument("version", "The versions to allow, such as 0.2.x", false)
+    install.argument("alias", "The name to use the package under", false)
+    install.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_package_install(ctx.has_arg("package") ? ctx.arg("package") : null, ctx.has_arg("version") ? ctx.arg("version") : null, ctx.has_arg("alias") ? ctx.arg("alias") : null)
+        return 0
+    })
+    install.complete_argument("package", fn(words: Array[String]) Array[String] {
+        return project_package_names()
+    })
 
-    if options.contains("-h") || options.contains("--help") : help(0)
-
-    if action == "use" {
-        cmd_use(args, options)
-    } else if action == "init" {
-        Project.init_config()
-    } else if action == "install" {
-        cmd_package_install(args, options)
-    } else if action == "update" {
+    let update = cli.Command.new("update", "Update the packages to the newest versions they allow")
+    update.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         cmd_package_update()
-    } else if action == "remove" {
-        cmd_package_remove(args, options)
-    } else if action == "versions" {
-        cmd_package_versions(args)
-    } else if action == "self-update" {
+        return 0
+    })
+
+    let remove = cli.Command.new("remove", "Remove a package from this project")
+    remove.argument("package", "The name it is used under", true)
+    remove.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_package_remove(ctx.arg("package"))
+        return 0
+    })
+    remove.complete_argument("package", fn(words: Array[String]) Array[String] {
+        return project_dependency_names()
+    })
+
+    let versions = cli.Command.new("versions", "List the versions of a package, and the valk versions they need")
+    versions.argument("package", "A package such as github.com/user/repo", true)
+    versions.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_package_versions(ctx.arg("package"))
+        return 0
+    })
+    versions.complete_argument("package", fn(words: Array[String]) Array[String] {
+        return project_package_names()
+    })
+
+    let init = cli.Command.new("init", "Write a valk.json for this project")
+    init.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        Project.init_config()
+        return 0
+    })
+
+    // Valk versions
+    let use_command = cli.Command.new("use", "Install a valk version and make it the one in use")
+    use_command.argument("version", "A version, `latest`, `dev`, or nothing for the one in valk.json", false)
+    use_command.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_use(ctx.has_arg("version") ? ctx.arg("version") : null)
+        return 0
+    })
+    use_command.complete_argument("version", fn(words: Array[String]) Array[String] {
+        let names = Array[String]{ "latest", "dev" }
+        names.append_many(installed_version_names())
+        return names
+    })
+
+    let unuse = cli.Command.new("unuse", "Remove an installed valk version")
+    unuse.argument("version", "The version to remove", true)
+    unuse.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_unuse(ctx.arg("version"))
+        return 0
+    })
+    unuse.complete_argument("version", fn(words: Array[String]) Array[String] {
+        return installed_version_names()
+    })
+
+    // Other
+    let self_update_command = cli.Command.new("self-update", "Update vman itself")
+    self_update_command.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         self_update()
-    } else if action == "clean" {
-        cmd_clean(args)
-    } else if action == "unuse" {
-        cmd_unuse(args, options)
-    } else if action == "version" {
+        return 0
+    })
+
+    let clean = cli.Command.new("clean", "Remove what is no longer needed")
+    clean.argument("what", "packages, cache or repos", true)
+    clean.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_clean(ctx.arg("what"))
+        return 0
+    })
+    clean.complete_argument("what", fn(words: Array[String]) Array[String] {
+        return .{ "packages", "cache", "repos" }
+    })
+
+    // `vman version` was there before `--version` was, and scripts use it
+    let version_command = cli.Command.new("version", "Show the version of vman")
+    version_command.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         println(VERSION)
-    } else if action == "fetch" {
-        let arg0 = args.get(0) !? ""
-        fetch(arg0 == "true")
+        return 0
+    })
+
+    let fetch_command = cli.Command.new("fetch", "Save the list of released versions")
+    fetch_command.argument("force", "true to fetch even when the list is fresh", false)
+    fetch_command.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        fetch(ctx.arg("force") == "true")
         println("# Saved versions to " + versions_json_path())
-    } else {
-        println("Unknown command: '" + action + "'")
-        exit(1)
-    }
+        return 0
+    })
+
+    app.root.command(install)
+    app.root.command(update)
+    app.root.command(remove)
+    app.root.command(versions)
+    app.root.command(init)
+    app.root.command(use_command)
+    app.root.command(unuse)
+    app.root.command(self_update_command)
+    app.root.command(clean)
+    app.root.command(version_command)
+    app.root.command(fetch_command)
+    app.add_completion_command()
+    return app
 }
 
-fn help(code: i32) $exit {
-    println("-----------------------------")
-    println(" Valk package manager " + VERSION)
-    println("-----------------------------")
-    print("\n")
-    println(emo("📦", "#") + " Package commands")
-    print("\n")
-    println(" vman init              Initialize a valk.json config")
-    println(" vman install           Install packages defined in valk.json")
-    println(" vman install {pkg} [{version-mask}]")
-    println("                        Install a package in the current project")
-    println(" vman update            Update packages to the latest matching versions")
-    println(" vman remove {pkg}      Remove a package by name")
-    println(" vman versions {pkg}    List package versions and the valk versions they support")
-    print("\n")
-    println(emo("💿", "#") + " Valk version control")
-    print("\n")
-    println(" vman use 0.3.4         Install valk version 0.3.4")
-    println(" vman use               Install the version from valk.json")
-    println(" vman use latest        Install latest version")
-    println(" vman use dev           Install the dev valk version")
-    println(" vman unuse {version}   Remove an installed Valk version")
-    print("\n")
-    println(emo("⚙️", "#") + " Other");
-    print("\n")
-    println(" vman version           Show vman version");
-    println(" vman self-update       Update vman itself");
-    print("\n")
-    println(" vman clean packages    Remove unused vendor packages");
-    println(" vman clean cache       Clear cached requests and downloads");
-    println(" vman clean repos       Remove cloned package repositories");
-
-    print("\n")
-
-    exit(code)
+// The valk versions that are installed, newest first
+fn installed_version_names() Array[String] {
+    let names = Array[String]{}
+    let dirs = fs.files_in(versions_dir(), false, false, true) !? .{}
+    each dirs as dir {
+        let name = fs.basename(dir)
+        Version.new(name) ! continue
+        names.append(name)
+    }
+    names.sort()
+    names.reverse()
+    return names
 }
 
+// The names this project uses its dependencies under
+fn project_dependency_names() Array[String] {
+    let names = Array[String]{}
+    if !fs.exists(Project.get_config_path()) : return names
+    let project = Project.load()
+    let deps = project.config.get("dependencies").object
+    each deps.values.keys() as key : names.append(key)
+    return names
+}
 
-fn extract_options(args: Array[String]) Array[String] {
-    let options = Array[String]{}
-    each args as arg, i {
-        if arg.starts_with("-") {
-            options.append(arg)
-            args.remove(i--)
-        }
+// The packages this project already names, which is what `install` and `versions` usually mean
+fn project_package_names() Array[String] {
+    let names = Array[String]{}
+    if !fs.exists(Project.get_config_path()) : return names
+    let project = Project.load()
+    let deps = project.config.get("dependencies").object
+    each deps.values as dep, key {
+        let src = dep.get("src").string
+        if src.length > 0 && !fs.is_dir(src) : names.append(src)
     }
-    return options
+    return names
 }

@@ -3,6 +3,9 @@
     "dependencies": {
         "vman": {
             "src": "../"
+        },
+        "cli": {
+            "src": "../vendor/github-ctxcode-valk-cli/0.2.0"
         }
     }
 }

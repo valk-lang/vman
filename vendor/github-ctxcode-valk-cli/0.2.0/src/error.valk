@@ -1,0 +1,16 @@
+/// Thrown while the command line is read.
+///
+/// - `unknown_flag`: an option the command does not have.
+/// - `unknown_command`: a subcommand that does not exist.
+/// - `missing_value`: an option that takes a value was given none.
+/// - `missing_argument`: a required argument or option was left out.
+/// - `invalid_value`: a value that is not a number where one is expected, or not one of the
+///   choices an option allows.
+/// - `usage`: the command line could not be read for another reason.
+///
+/// `message` is written for the person who typed the command, and `command` names the command
+/// that was being read, so the usage line can be printed with it.
++ error Error (unknown_flag, unknown_command, missing_value, missing_argument, invalid_value, usage) payload {
+    message: String
+    command: String ("")
+}

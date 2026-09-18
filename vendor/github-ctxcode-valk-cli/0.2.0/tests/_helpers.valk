@@ -1,0 +1,18 @@
+use cli
+
+// A program with one command, used by most of the tests
+fn simple_app() cli.App {
+    let app = cli.App.new("tool", "A tool for testing", "1.2.3")
+    app.root.flag("verbose", "v", "Say more")
+    app.root.option("output", "o", "Where to write", "out.txt", "file")
+    app.root.option("level", "l", "How deep", "1")
+    app.root.argument("source", "What to read", true)
+    app.root.argument("extra", "More files", false, true)
+    return app
+}
+
+fn args(items: Array[String]) Array[String] {
+    let out = Array[String]{ "tool" }
+    out.append_many(items)
+    return out
+}

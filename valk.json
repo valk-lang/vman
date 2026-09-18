@@ -1,13 +1,21 @@
 {
     "name": "vman",
-    "use": "0.7.1",
+    "use": "0.7.3",
     "define": {
         "VERSION": "0.1.3"
     },
     "dependencies": {
         "example": {
             "src": "github.com/valk-lang/pkg-example",
-            "version": "0.0.2"
+            "version": "0.0.2",
+            "current": "0.0.2",
+            "current_hash": "8a06ca61b23f24bce22096485d059d936dcae8fb"
+        },
+        "cli": {
+            "src": "github.com/ctxcode/valk-cli",
+            "version": "0.2.x",
+            "current": "0.2.0",
+            "current_hash": "62ae3c2ecc9b5d90e3d20fb2e3e4f250fb80d4e8"
         }
     }
 }

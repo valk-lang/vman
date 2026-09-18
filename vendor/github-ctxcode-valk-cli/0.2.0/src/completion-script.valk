@@ -1,0 +1,89 @@
+/// The shells that can be taught to complete a program.
++ enum Shell {
+    bash
+    zsh
+    fish
+}
+
+extend App {
+    /// Returns the script that teaches `shell` to complete this program.
+    ///
+    /// The script is a few lines that ask the program itself what to offer, so it never has to
+    /// be written again when a command or an option is added.
+    ///
+    /// ```sh
+    /// mytool completion bash > /etc/bash_completion.d/mytool     # or source it from .bashrc
+    /// mytool completion zsh  > ~/.zfunc/_mytool
+    /// mytool completion fish > ~/.config/fish/completions/mytool.fish
+    /// ```
+    + fn completion_script(shell: Shell) String {
+        let program = this.root.name
+        // A shell function cannot have a dash in its name
+        let safe = program.replace("-", "_").replace(".", "_")
+
+        if shell == Shell.zsh {
+            return "#compdef " + program + "\n"
+                + "\n"
+                + "_" + safe + "_complete() {\n"
+                + "    local -a candidates\n"
+                + "    candidates=(\"${(@f)$(" + program + " __complete \"${(@)words[1,CURRENT]}\" 2>/dev/null)}\")\n"
+                + "    if (( ${#candidates} == 0 )) || [[ -z \"${candidates[1]}\" ]]; then\n"
+                + "        _files\n"
+                + "        return\n"
+                + "    fi\n"
+                + "    compadd -- \"${candidates[@]}\"\n"
+                + "}\n"
+                + "\n"
+                + "compdef _" + safe + "_complete " + program + "\n"
+        }
+        if shell == Shell.fish {
+            return "function __" + safe + "_complete\n"
+                + "    set -l tokens (commandline -opc)\n"
+                + "    set -l current (commandline -ct)\n"
+                + "    " + program + " __complete $tokens $current 2>/dev/null\n"
+                + "end\n"
+                + "\n"
+                + "complete -c " + program + " -f -a '(__" + safe + "_complete)'\n"
+        }
+        return "_" + safe + "_complete() {\n"
+            + "    local IFS=$'\\n'\n"
+            + "    local typed=(\"${COMP_WORDS[@]:0:COMP_CWORD+1}\")\n"
+            + "    COMPREPLY=($(\"" + program + "\" __complete \"${typed[@]}\" 2>/dev/null))\n"
+            + "}\n"
+            + "\n"
+            + "complete -o default -F _" + safe + "_complete " + program + "\n"
+    }
+
+    /// Adds a `completion` command, which prints the script for the shell it is given.
+    ///
+    /// ```valk
+    /// app.add_completion_command()
+    /// // mytool completion bash >> ~/.bashrc
+    /// ```
+    + fn add_completion_command(name: String ("completion")) SELF {
+        let app = this
+        let command = Command.new(name, "Print the script that completes this program in your shell")
+        command.description = "Add it to your shell to complete commands, options and their values:\n"
+            + "\n"
+            + "  " + this.root.name + " " + name + " bash > /etc/bash_completion.d/" + this.root.name + "\n"
+            + "  " + this.root.name + " " + name + " zsh  > ~/.zfunc/_" + this.root.name + "\n"
+            + "  " + this.root.name + " " + name + " fish > ~/.config/fish/completions/" + this.root.name + ".fish"
+        command.argument("shell", "bash, zsh or fish", true)
+        command.on_run(fn(ctx: Context) i32 !Error {
+            let named = ctx.arg("shell")
+            let shell = Shell.bash
+            if named == "zsh" : shell = Shell.zsh
+            else if named == "fish" : shell = Shell.fish
+            else if named != "bash" {
+                throw .invalid_value { message: "'" + named + "' is not a shell this can complete; try bash, zsh or fish", command: ctx.command.path() }
+            }
+            app.write(app.completion_script(shell))
+            return 0
+        })
+        command.complete_argument("shell", fn(words: Array[String]) Array[String] {
+            return .{ "bash", "zsh", "fish" }
+        })
+        this.root.command(command)
+        return this
+    }
+}

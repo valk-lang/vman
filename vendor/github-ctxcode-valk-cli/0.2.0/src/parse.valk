@@ -1,0 +1,261 @@
+use valk.core
+
+// Reads a command line into a `Context`: the command that was named, its switches, its options
+// and its arguments.
+//
+// The rules are the ones every unix tool follows: `--name value`, `--name=value`, `-n value`,
+// `-abc` for switches written together, `--` for "everything after this is a value", and a `-`
+// on its own is a value (which many tools read as standard input).
+fn parse_command_line(root: Command, args: Array[String]) Context !Error {
+    let command = root
+    let index: uint = 1 // the first item is the program itself
+    let program = args.get(0) !? root.name
+
+    // The subcommand comes before anything that starts with a `-`
+    while index < args.length {
+        let word = args.get(index) !? ""
+        if word.length == 0 || word[0] == '-' : break
+        let sub = command.find(word)
+        if !isset(sub) : break
+        command = sub
+        index++
+    }
+
+    let context = Context { command: command, program: program }
+    let positional = Array[String]{}
+    let only_values = false
+
+    while index < args.length {
+        let word = args.get(index++) !? ""
+
+        if only_values {
+            context.rest.append(word)
+            continue
+        }
+        if word == "--" {
+            only_values = true
+            continue
+        }
+        if word == "--help" || word == "-h" {
+            context.help_asked = true
+            continue
+        }
+        if word == "--version" {
+            context.version_asked = true
+            continue
+        }
+
+        if word.starts_with("--") {
+            let name = word.range(2, word.length - 2)
+            let value: ?String = null
+            let equals = name.index_of_byte('=') !? 0
+            if equals > 0 {
+                value = name.range(equals + 1, name.length - equals - 1)
+                name = name.range(0, equals)
+            }
+
+            let flag = command.find_flag(name)
+            if isset(flag) {
+                if isset(value) {
+                    throw .usage { message: "--" + name + " is a switch and takes no value", command: command.path() }
+                }
+                context.given_flags.set(name, true)
+                continue
+            }
+
+            let option = command.find_option(name)
+            if !isset(option) : unknown_flag(command, "--" + name)
+            if !isset(value) {
+                if index >= args.length : throw .missing_value { message: "--" + name + " needs a value", command: command.path() }
+                value = args.get(index++) !? ""
+            }
+            add_option_value(context, command, option, value) !>
+            continue
+        }
+
+        if word.length > 1 && word[0] == '-' {
+            // A run of single letter switches, with an option and its value allowed at the end
+            let letters = word.range(1, word.length - 1)
+            let at: uint = 0
+            while at < letters.length {
+                let letter = letters.range(at, 1)
+                at++
+                let flag = command.find_short_flag(letter)
+                if isset(flag) {
+                    context.given_flags.set(flag.long, true)
+                    continue
+                }
+                let option = command.find_short_option(letter)
+                if !isset(option) : unknown_flag(command, "-" + letter)
+                // The rest of the run is the value, or the next word is
+                let value = ""
+                if at < letters.length {
+                    value = letters.range(at, letters.length - at)
+                    if value.starts_with("=") : value = value.range(1, value.length - 1)
+                    at = letters.length
+                } else {
+                    if index >= args.length : throw .missing_value { message: "-" + letter + " needs a value", command: command.path() }
+                    value = args.get(index++) !? ""
+                }
+                add_option_value(context, command, option, value) !>
+            }
+            continue
+        }
+
+        positional.append(word)
+    }
+
+    // Help and version are answered without asking for anything else
+    if context.help_asked || context.version_asked : return context
+
+    read_environment(context, command)
+    fill_arguments(context, command, positional) !>
+    check_required(context, command) !>
+    return context
+}
+
+// Adds a value to an option, refusing a second one unless the option may be repeated
+fn add_option_value(context: Context, command: Command, option: Option, value: String) !Error {
+    if option.choices.length > 0 && !option.choices.contains(value) {
+        throw .invalid_value {
+            message: "--" + option.long + " takes one of " + option.choices.join(", ") + ", not '" + value + "'"
+            command: command.path()
+        }
+    }
+    let values = context.given_options.get(option.long) !? .{}
+    if values.length > 0 && !option.repeated {
+        throw .usage { message: "--" + option.long + " was given more than once", command: command.path() }
+    }
+    values.append(value)
+    context.given_options.set(option.long, values)
+}
+
+// Options and switches that were not given may still come from the environment
+fn read_environment(context: Context, command: Command) {
+    each command.options as option {
+        if option.env.length == 0 : continue
+        if context.has(option.long) : continue
+        let value = core.getenv(option.env) ! continue
+        if value.length == 0 : continue
+        let values = Array[String]{ value }
+        context.given_options.set(option.long, values)
+    }
+    each command.flags as flag {
+        if flag.env.length == 0 : continue
+        if context.flag(flag.long) : continue
+        let value = core.getenv(flag.env) ! continue
+        if value == "1" || value == "true" || value == "yes" || value == "on" {
+            context.given_flags.set(flag.long, true)
+        }
+    }
+}
+
+// Hands the values that were not written behind a name to the arguments, in order
+fn fill_arguments(context: Context, command: Command, positional: Array[String]) !Error {
+    let at: uint = 0
+    each command.arguments as argument {
+        if argument.variadic {
+            let rest = Array[String]{}
+            while at < positional.length {
+                rest.append(positional.get(at++) !? "")
+            }
+            context.given_arguments.set(argument.name, rest)
+            continue
+        }
+        if at >= positional.length : break
+        let values = Array[String]{ positional.get(at++) !? "" }
+        context.given_arguments.set(argument.name, values)
+    }
+
+    if at < positional.length {
+        let extra = positional.get(at) !? ""
+        if command.commands.length > 0 : unknown_command(command, extra)
+        throw .usage { message: "This command takes no argument '" + extra + "'", command: command.path() }
+    }
+}
+
+// Everything the command says it needs must be there
+fn check_required(context: Context, command: Command) !Error {
+    each command.options as option {
+        if !option.required : continue
+        if context.has(option.long) : continue
+        if option.default.length > 0 : continue
+        throw .missing_argument { message: "--" + option.long + " is required", command: command.path() }
+    }
+    each command.arguments as argument {
+        if !argument.required : continue
+        if argument.variadic {
+            if context.args(argument.name).length > 0 : continue
+        } else if context.has_arg(argument.name) : continue
+        throw .missing_argument { message: "<" + argument.name + "> is required", command: command.path() }
+    }
+}
+
+fn unknown_flag(command: Command, written: String) !Error $throw {
+    let names = Array[String]{}
+    each command.flags as flag : names.append("--" + flag.long)
+    each command.options as option : names.append("--" + option.long)
+    let suggestion = closest_name(written, names)
+    let message = "Unknown option '" + written + "'"
+    if suggestion.length > 0 : message += ". Did you mean '" + suggestion + "'?"
+    throw .unknown_flag { message: message, command: command.path() }
+}
+
+fn unknown_command(command: Command, written: String) !Error $throw {
+    let names = Array[String]{}
+    each command.commands as sub : names.append(sub.name)
+    let suggestion = closest_name(written, names)
+    let message = "Unknown command '" + written + "'"
+    if suggestion.length > 0 : message += ". Did you mean '" + suggestion + "'?"
+    throw .unknown_command { message: message, command: command.path() }
+}
+
+// The name that is nearest to what was typed, when something is near enough to be worth saying
+fn closest_name(written: String, names: Array[String]) String {
+    let best = ""
+    let best_distance = uint.$max
+    each names as name {
+        let distance = edit_distance(written.trim("-").lower(), name.trim("-").lower())
+        if distance < best_distance {
+            best_distance = distance
+            best = name
+        }
+    }
+    // Two edits at most, and never a suggestion longer than the word it fixes
+    if best_distance > 2 : return ""
+    return best
+}
+
+// The number of single character changes that turn one word into the other
+fn edit_distance(from: String, to: String) uint {
+    let width = to.length + 1
+    let previous = Array[uint].new(width)
+    let current = Array[uint].new(width)
+    let i: uint = 0
+    while i < width {
+        previous.append(i)
+        current.append(0)
+        i++
+    }
+    let row: uint = 0
+    while row < from.length {
+        current.set(0, row + 1) _
+        let column: uint = 0
+        while column < to.length {
+            let cost = from[row] == to[column] ? 0 : 1
+            let deletion = (previous.get(column + 1) !? 0) + 1
+            let insertion = (current.get(column) !? 0) + 1
+            let change = (previous.get(column) !? 0) + cost
+            let best = deletion
+            if insertion < best : best = insertion
+            if change < best : best = change
+            current.set(column + 1, best) _
+            column++
+        }
+        let swap = previous
+        previous = current
+        current = swap
+        row++
+    }
+    return previous.get(to.length) !? to.length
+}

@@ -1,0 +1,143 @@
+use cli
+use valk.core
+
+fn git_like() cli.App {
+    let app = cli.App.new("vcs", "A version control system", "2.0.0")
+    app.root.flag("quiet", "q", "Say less")
+
+    let add = cli.Command.new("add", "Add files to the next commit")
+    add.argument("files", "The files to add", true, true)
+    add.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        return ctx.args("files").length.to(i32)
+    })
+
+    let remote = cli.Command.new("remote", "Work with remotes")
+    let remote_add = cli.Command.new("add", "Add a remote")
+    remote_add.argument("name", "Its name", true)
+    remote_add.argument("url", "Where it lives", true)
+    remote_add.option("branch", "b", "The branch to follow", "main")
+    remote_add.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        if ctx.arg("name") == "origin" && ctx.value("branch") == "main" : return 0
+        return 1
+    })
+    remote.command(remote_add)
+
+    app.root.command(add)
+    app.root.command(remote)
+    return app
+}
+
+test "Subcommands" {
+    let app = git_like()
+
+    // The command that was named is the one that runs
+    let ctx = app.parse(args(.{ "add", "one.txt", "two.txt" })) ! { println(E.message) assert(false) return }
+    assert(ctx.command.name == "add")
+    assert(ctx.args("files").length == 2)
+    assert(ctx.command.path() == "vcs add")
+
+    // Commands under commands
+    let deep = app.parse(args(.{ "remote", "add", "origin", "git@example.com:repo.git" })) ! {
+        println(E.message)
+        assert(false)
+        return
+    }
+    assert(deep.command.path() == "vcs remote add")
+    assert(deep.arg("name") == "origin")
+    assert(deep.arg("url") == "git@example.com:repo.git")
+    assert(deep.value("branch") == "main")
+
+    // Running returns what the command returns
+    assert(app.run(args(.{ "add", "a", "b", "c" })) == 3)
+    assert(app.run(args(.{ "remote", "add", "origin", "url" })) == 0)
+    assert(app.run(args(.{ "remote", "add", "upstream", "url" })) == 1)
+
+    // A command that does not exist, with the nearest one offered
+    app.parse(args(.{ "remove", "x" })) ! {
+        assert(error_is(E.code, unknown_command))
+        assert(E.message.contains("Did you mean 'remote'"))
+        return
+    }
+    assert(false)
+}
+
+test "Help and version" {
+    let app = git_like()
+
+    // `--help` anywhere answers with the help of the command it follows
+    let root_help = app.parse(args(.{ "--help" })) ! { assert(false) return }
+    assert(root_help.help_asked)
+    let sub_help = app.parse(args(.{ "remote", "add", "--help" })) ! { assert(false) return }
+    assert(sub_help.help_asked)
+    assert(sub_help.command.path() == "vcs remote add")
+
+    // Asking for help does not ask for the arguments the command needs
+    let without_args = app.parse(args(.{ "remote", "add", "-h" })) ! { println(E.message) assert(false) return }
+    assert(without_args.help_asked)
+
+    let version = app.parse(args(.{ "--version" })) ! { assert(false) return }
+    assert(version.version_asked)
+
+    // Both answer 0
+    assert(app.run(args(.{ "--help" })) == 0)
+    assert(app.run(args(.{ "--version" })) == 0)
+}
+
+synctest "Help text" {
+    cli.colors = false
+    let app = git_like()
+    let text = app.help()
+
+    assert(text.contains("A version control system"))
+    assert(text.contains("Usage:"))
+    assert(text.contains("vcs [options] <command>"))
+    assert(text.contains("Commands:"))
+    assert(text.contains("add"))
+    assert(text.contains("Add files to the next commit"))
+    assert(text.contains("Options:"))
+    assert(text.contains("-q, --quiet"))
+    assert(text.contains("-h, --help"))
+    assert(text.contains("--version"))
+    assert(text.contains("Version 2.0.0"))
+
+    // A subcommand shows its own arguments and options
+    let remote_add = app.root.find("remote") ?! {
+        assert(false)
+        return
+    }
+    let sub = remote_add.find("add") ?! {
+        assert(false)
+        return
+    }
+    let sub_text = cli.help_text(sub)
+    assert(sub_text.contains("vcs remote add [options] <name> <url>"))
+    assert(sub_text.contains("<name>"))
+    assert(sub_text.contains("Its name"))
+    assert(sub_text.contains("-b, --branch <value>"))
+    assert(sub_text.contains("[default: main]"))
+    // A subcommand does not offer --version
+    assert(!sub_text.contains("--version"))
+}
+
+synctest "Environment variables" {
+    let app = cli.App.new("tool", "", "")
+    app.root.option("token", "t", "The token to use", "", "token", "TOOL_TOKEN")
+    app.root.flag("debug", "d", "Say more", "TOOL_DEBUG")
+
+    core.setenv("TOOL_TOKEN", "from-env") ! { assert(false) return }
+    core.setenv("TOOL_DEBUG", "1") ! { assert(false) return }
+
+    let ctx = app.parse(args(.{})) ! { println(E.message) assert(false) return }
+    assert(ctx.value("token") == "from-env")
+    assert(ctx.flag("debug"))
+
+    // What is typed wins over the environment
+    let typed = app.parse(args(.{ "--token", "from-args" })) ! { assert(false) return }
+    assert(typed.value("token") == "from-args")
+
+    core.unsetenv("TOOL_TOKEN") ! { assert(false) return }
+    core.unsetenv("TOOL_DEBUG") ! { assert(false) return }
+    let without = app.parse(args(.{})) ! { assert(false) return }
+    assert(without.value("token") == "")
+    assert(!without.flag("debug"))
+}

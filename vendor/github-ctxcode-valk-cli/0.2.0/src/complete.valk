@@ -1,0 +1,170 @@
+// What a shell should offer for a command line that is half typed.
+//
+// The shell hands over every word up to the cursor, the last one being the word being completed,
+// which is empty when the cursor sits after a space. Everything is worked out from what the
+// commands declare, so what a shell offers cannot drift from what the program takes.
+
+extend App {
+    /// Returns what a shell should offer for `words`, the command line up to the cursor.
+    ///
+    /// The first word is the program, and the last is the word being completed, empty when the
+    /// cursor is after a space. This is what the `__complete` command answers with, and it is
+    /// what a test can check without a shell.
+    ///
+    /// ```valk
+    /// assert(app.complete(.{ "vcs", "remote", "--" }).contains("--help"))
+    /// ```
+    + fn complete(words: Array[String]) Array[String] {
+        let current = words.length > 1 ? (words.get(words.length - 1) !? "") : ""
+        let before = Array[String]{}
+        let i: uint = 1
+        while i + 1 < words.length {
+            before.append(words.get(i) !? "")
+            i++
+        }
+
+        // The command the line names so far
+        let command = this.root
+        let at: uint = 0
+        while at < before.length {
+            let word = before.get(at) !? ""
+            if word.length > 0 && word[0] == '-' : break
+            let sub = command.find(word)
+            if !isset(sub) : break
+            command = sub
+            at++
+        }
+
+        // After a `--` everything is a value, and nothing is offered
+        if before.contains("--") : return .{}
+
+        // A value that belongs to the option before it
+        let previous = before.length > 0 ? (before.get(before.length - 1) !? "") : ""
+        let awaiting = option_awaiting_value(command, previous)
+        if isset(awaiting) : return offered_values(awaiting, words, current)
+
+        if current.starts_with("--") {
+            // `--name=value`: the part after the `=` is the value
+            let equals = current.index_of_byte('=') !? 0
+            if equals > 0 {
+                let name = current.range(2, equals - 2)
+                let typed = current.range(equals + 1, current.length - equals - 1)
+                let option = command.find_option(name)
+                if !isset(option) : return .{}
+                let values = offered_values(option, words, typed)
+                let out = Array[String]{}
+                each values as value : out.append("--" + name + "=" + value)
+                return out
+            }
+            return starting_with(long_names(command, this.version.length > 0), current)
+        }
+
+        if current.length > 0 && current[0] == '-' {
+            // A single dash offers both forms; a letter after it only the short ones
+            let names = current == "-" ? all_option_names(command, this.version.length > 0) : short_names(command)
+            return starting_with(names, current)
+        }
+
+        // A command, or a value for the argument that comes next
+        let candidates = Array[String]{}
+        each command.commands as sub : candidates.append(sub.name)
+        let argument = argument_at(command, before)
+        if isset(argument) {
+            let completer = argument.complete
+            if isset(completer) : candidates.append_many(completer(words))
+        }
+        return starting_with(candidates, current)
+    }
+}
+
+// The option a value would belong to, when the word before the cursor is one that takes a value
+fn option_awaiting_value(command: Command, previous: String) ?Option {
+    if previous.length < 2 || previous[0] != '-' : return null
+    if previous.contains("=") : return null
+    if previous.starts_with("--") {
+        return command.find_option(previous.range(2, previous.length - 2))
+    }
+    // `-abc`: only the last letter can be the one taking a value
+    let letters = previous.range(1, previous.length - 1)
+    let last = letters.range(letters.length - 1, 1)
+    return command.find_short_option(last)
+}
+
+// What an option offers as its value: what it allows, or whatever its own function lists
+fn offered_values(option: Option, words: Array[String], typed: String) Array[String] {
+    let candidates = Array[String]{}
+    candidates.append_many(option.choices)
+    let completer = option.complete
+    if isset(completer) : candidates.append_many(completer(words))
+    return starting_with(candidates, typed)
+}
+
+// The argument the next plain word would fill
+fn argument_at(command: Command, before: Array[String]) ?Argument {
+    let filled: uint = 0
+    let i: uint = 0
+    // The words that named this command are not arguments of it
+    let depth: uint = 0
+    let walk = command
+    while isset(walk.parent) {
+        depth++
+        walk = walk.parent ?? walk
+    }
+    i = depth
+
+    while i < before.length {
+        let word = before.get(i) !? ""
+        i++
+        if word.length > 0 && word[0] == '-' {
+            // An option that takes a value swallows the word after it
+            if isset(option_awaiting_value(command, word)) && i < before.length : i++
+            continue
+        }
+        filled++
+    }
+
+    let arguments = command.arguments
+    if arguments.length == 0 : return null
+    if filled >= arguments.length {
+        let last = arguments.get(arguments.length - 1) !? null
+        if isset(last) && last.variadic : return last
+        return null
+    }
+    return arguments.get(filled) !? null
+}
+
+fn long_names(command: Command, has_version: bool) Array[String] {
+    let names = Array[String]{}
+    each command.flags as flag : names.append("--" + flag.long)
+    each command.options as option : names.append("--" + option.long)
+    names.append("--help")
+    if has_version && !isset(command.parent) : names.append("--version")
+    return names
+}
+
+fn short_names(command: Command) Array[String] {
+    let names = Array[String]{}
+    each command.flags as flag {
+        if flag.short.length > 0 : names.append("-" + flag.short)
+    }
+    each command.options as option {
+        if option.short.length > 0 : names.append("-" + option.short)
+    }
+    names.append("-h")
+    return names
+}
+
+fn all_option_names(command: Command, has_version: bool) Array[String] {
+    let names = short_names(command)
+    names.append_many(long_names(command, has_version))
+    return names
+}
+
+fn starting_with(candidates: Array[String], prefix: String) Array[String] {
+    if prefix.length == 0 : return candidates
+    let out = Array[String]{}
+    each candidates as candidate {
+        if candidate.starts_with(prefix) : out.append(candidate)
+    }
+    return out
+}

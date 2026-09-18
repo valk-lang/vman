@@ -75,3 +75,21 @@ the project's valk version.
 ```sh
 make test
 ```
+
+## Tab completion
+
+```sh
+vman completion bash > /etc/bash_completion.d/vman
+vman completion zsh  > ~/.zfunc/_vman
+vman completion fish > ~/.config/fish/completions/vman.fish
+```
+
+`vman use <tab>` then offers the valk versions that are installed, `vman remove <tab>` the
+packages this project uses, and `vman clean <tab>` what can be cleaned.
+
+## Building it
+
+vman reads its command line with [valk-cli](https://github.com/ctxcode/valk-cli), which lives in
+`vendor/` in this repository so that vman builds without a package manager to install it. To
+move to a newer valk-cli, run `vman install github.com/ctxcode/valk-cli` and commit what lands
+in `vendor/`.

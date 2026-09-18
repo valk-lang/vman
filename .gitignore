@@ -3,5 +3,7 @@ vman
 vp
 vpkg
 dists
-vendor
+vendor/*
+!vendor/github-ctxcode-valk-cli
+!vendor/github-ctxcode-valk-cli/**
 debug

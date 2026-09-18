@@ -1,0 +1,167 @@
+/// One command: its options, its arguments, what it does, and the commands under it.
+///
+/// A program is a tree of these. The root command is the program itself, and a subcommand is a
+/// command of its own with a name, its own options and possibly commands under it again.
+///
+/// ```valk
+/// let build = cli.Command.new("build", "Compile the project")
+/// build.flag("release", "r", "Build with optimizations")
+/// build.option("output", "o", "Where to write the binary", "./app")
+/// build.argument("target", "What to build", false)
+/// build.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+///     println("building " + ctx.arg("target", "everything"))
+///     return 0
+/// })
+/// ```
++ class Command {
+    /// The name as it is typed.
+    + name: String
+    /// One line, shown in the list of commands.
+    + summary: String ("")
+    /// The longer text, shown under the usage line of this command's help.
+    + description: String ("")
+    /// What the command does, returning the exit code of the program. A command without one
+    /// prints its help.
+    + run: ?fn(Context)(i32 !Error) (null)
+    /// The switches of this command.
+    ~ flags: Array[Flag] (.{})
+    /// The options of this command.
+    ~ options: Array[Option] (.{})
+    /// The arguments of this command, in the order they are read.
+    ~ arguments: Array[Argument] (.{})
+    /// The commands under this one.
+    ~ commands: Array[Command] (.{})
+    /// The command this one sits under, or null for the root.
+    ~ parent: ?Command (null)
+
+    /// Creates a command.
+    + static fn new(name: String, summary: String ("")) Command {
+        return Command { name: name, summary: summary }
+    }
+
+    /// Adds a switch, which is either given or not.
+    + fn flag(long: String, short: String (""), help: String (""), env: String ("")) SELF {
+        this.flags.append(Flag { long: long, short: short, help: help, env: env })
+        return this
+    }
+
+    /// Adds an option that takes a value.
+    + fn option(long: String, short: String (""), help: String (""), default: String (""), placeholder: String ("value"), env: String (""), required: bool (false), repeated: bool (false), choices: Array[String] (.{})) SELF {
+        this.options.append(Option {
+            long: long
+            short: short
+            help: help
+            default: default
+            placeholder: placeholder
+            env: env
+            required: required
+            repeated: repeated
+            choices: choices
+        })
+        return this
+    }
+
+    /// Adds an argument. A variadic one takes everything that is left and must come last.
+    + fn argument(name: String, help: String (""), required: bool (false), variadic: bool (false)) SELF {
+        this.arguments.append(Argument { name: name, help: help, required: required, variadic: variadic })
+        return this
+    }
+
+    /// Adds a command under this one.
+    + fn command(sub: Command) SELF {
+        sub.parent = this
+        this.commands.append(sub)
+        return this
+    }
+
+    /// Sets what the command does. It returns the exit code of the program.
+    + fn on_run(handler: fn(Context)(i32 !Error)) SELF {
+        this.run = handler
+        return this
+    }
+
+    /// Says what a shell should offer as the value of an option.
+    ///
+    /// The function is given the words typed so far and returns the candidates. An option with
+    /// `choices` needs none of this: those are offered as they are.
+    ///
+    /// ```valk
+    /// deploy.option("environment", "e", "Where to deploy to")
+    /// deploy.complete_option("environment", fn(words: Array[String]) Array[String] {
+    ///     return read_environments_from_the_config()
+    /// })
+    /// ```
+    + fn complete_option(long: String, values: fn(Array[String])(Array[String])) SELF {
+        let option = this.find_option(long)
+        if isset(option) : option.complete = values
+        return this
+    }
+
+    /// Says what a shell should offer for an argument, the way `complete_option` does.
+    + fn complete_argument(name: String, values: fn(Array[String])(Array[String])) SELF {
+        each this.arguments as argument {
+            if argument.name == name : argument.complete = values
+        }
+        return this
+    }
+
+    /// Returns the command with this name, or null.
+    + fn find(name: String) ?Command {
+        each this.commands as sub {
+            if sub.name == name : return sub
+        }
+        return null
+    }
+
+    /// Returns the option with this long name, or null.
+    + fn find_option(long: String) ?Option {
+        each this.options as option {
+            if option.long == long : return option
+        }
+        return null
+    }
+    /// Returns the switch with this long name, or null.
+    + fn find_flag(long: String) ?Flag {
+        each this.flags as flag {
+            if flag.long == long : return flag
+        }
+        return null
+    }
+
+    // The same, by the single letter form
+    fn find_short_option(short: String) ?Option {
+        each this.options as option {
+            if option.short.length > 0 && option.short == short : return option
+        }
+        return null
+    }
+    fn find_short_flag(short: String) ?Flag {
+        each this.flags as flag {
+            if flag.short.length > 0 && flag.short == short : return flag
+        }
+        return null
+    }
+
+    /// Returns the names of this command and the ones above it: `mytool remote add`.
+    + fn path() String {
+        let parent = this.parent
+        if !isset(parent) : return this.name
+        return parent.path() + " " + this.name
+    }
+
+    /// Returns the `Usage:` line of this command.
+    + fn usage() String {
+        let out = ByteBuffer.new(64)
+        out.write(this.path())
+        if this.flags.length > 0 || this.options.length > 0 : out.write(" [options]")
+        if this.commands.length > 0 : out.write(this.arguments.length > 0 ? " [command]" : " <command>")
+        each this.arguments as argument {
+            out.write_byte(' ')
+            out.write(argument.required ? "<" : "[")
+            out.write(argument.name)
+            if argument.variadic : out.write("...")
+            out.write(argument.required ? ">" : "]")
+        }
+        return out.to_string()
+    }
+}

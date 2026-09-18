@@ -1,0 +1,160 @@
+use valk.core
+use valk.ansi
+
+/// Whether help and error text is written with colours. It follows the terminal by default, and
+/// `NO_COLOR` turns it off.
++ global colors: bool (ansi.supported() && !has_no_color())
+
+fn has_no_color() bool {
+    let value = core.getenv("NO_COLOR") ! return false
+    return value.length > 0
+}
+
+fn heading(text: String) String {
+    if !colors : return text
+    return text.ansi.yellow(true)
+}
+fn accent(text: String) String {
+    if !colors : return text
+    return text.ansi.cyan()
+}
+fn faint(text: String) String {
+    if !colors : return text
+    return text.ansi.white()
+}
+
+/// Returns the help text of a command: what it does, how it is used, and every command, option
+/// and argument it has.
++ fn help_text(command: Command, version: String ("")) String {
+    let out = ByteBuffer.new(512)
+
+    if command.summary.length > 0 {
+        out.write(command.summary)
+        out.write("\n\n")
+    }
+    out.write(heading("Usage:"))
+    out.write("\n  ")
+    out.write(command.usage())
+    out.write("\n")
+
+    if command.description.length > 0 {
+        out.write("\n")
+        out.write(command.description)
+        out.write("\n")
+    }
+
+    if command.commands.length > 0 {
+        out.write("\n")
+        out.write(heading("Commands:"))
+        out.write("\n")
+        let width = widest_command(command)
+        each command.commands as sub {
+            out.write("  ")
+            out.write(accent(sub.name.pad_right(' ', width)))
+            if sub.summary.length > 0 {
+                out.write("  ")
+                out.write(sub.summary)
+            }
+            out.write("\n")
+        }
+    }
+
+    if command.arguments.length > 0 {
+        out.write("\n")
+        out.write(heading("Arguments:"))
+        out.write("\n")
+        let width = widest_argument(command)
+        each command.arguments as argument {
+            out.write("  ")
+            out.write(accent(argument_label(argument).pad_right(' ', width)))
+            if argument.help.length > 0 {
+                out.write("  ")
+                out.write(argument.help)
+            }
+            out.write("\n")
+        }
+    }
+
+    let labels = option_labels(command)
+    if labels.length > 0 {
+        out.write("\n")
+        out.write(heading("Options:"))
+        out.write("\n")
+        let width: uint = 0
+        each labels as label {
+            if label.text.length > width : width = label.text.length
+        }
+        each labels as label {
+            out.write("  ")
+            out.write(accent(label.text.pad_right(' ', width)))
+            if label.help.length > 0 {
+                out.write("  ")
+                out.write(label.help)
+            }
+            if label.extra.length > 0 {
+                out.write(" ")
+                out.write(faint(label.extra))
+            }
+            out.write("\n")
+        }
+    }
+
+    if version.length > 0 && !isset(command.parent) {
+        out.write("\n")
+        out.write(faint("Version " + version))
+        out.write("\n")
+    }
+    return out.to_string()
+}
+
+class HelpLabel {
+    text: String
+    help: String ("")
+    extra: String ("")
+}
+
+fn argument_label(argument: Argument) String {
+    let name = argument.name
+    if argument.variadic : name += "..."
+    return argument.required ? "<" + name + ">" : "[" + name + "]"
+}
+
+// `-o, --output <file>` for every option and switch, with `--help` and `--version` at the end
+fn option_labels(command: Command) Array[HelpLabel] {
+    let labels = Array[HelpLabel]{}
+    each command.flags as flag {
+        let text = flag.short.length > 0 ? "-" + flag.short + ", --" + flag.long : "    --" + flag.long
+        let extra = flag.env.length > 0 ? "[" + flag.env + "]" : ""
+        labels.append(HelpLabel { text: text, help: flag.help, extra: extra })
+    }
+    each command.options as option {
+        let text = option.short.length > 0 ? "-" + option.short + ", --" + option.long : "    --" + option.long
+        text += " <" + option.placeholder + ">"
+        let extra = ""
+        if option.choices.length > 0 : extra += "[" + option.choices.join("|") + "] "
+        if option.default.length > 0 : extra += "[default: " + option.default + "] "
+        if option.env.length > 0 : extra += "[" + option.env + "] "
+        if option.required : extra += "[required] "
+        labels.append(HelpLabel { text: text, help: option.help, extra: extra.rtrim(" ") })
+    }
+    labels.append(HelpLabel { text: "-h, --help", help: "Show this help" })
+    if !isset(command.parent) : labels.append(HelpLabel { text: "    --version", help: "Show the version" })
+    return labels
+}
+
+fn widest_command(command: Command) uint {
+    let width: uint = 0
+    each command.commands as sub {
+        if sub.name.length > width : width = sub.name.length
+    }
+    return width
+}
+
+fn widest_argument(command: Command) uint {
+    let width: uint = 0
+    each command.arguments as argument {
+        let length = argument_label(argument).length
+        if length > width : width = length
+    }
+    return width
+}

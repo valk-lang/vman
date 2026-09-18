@@ -1,0 +1,163 @@
+use cli
+
+fn completing_app() cli.App {
+    let app = cli.App.new("vcs", "A version control system", "2.0.0")
+    app.root.flag("quiet", "q", "Say less")
+    app.root.option("config", "c", "Which config to read", "vcs.json")
+
+    let add = cli.Command.new("add", "Add files")
+    add.flag("all", "a", "Add everything")
+    add.argument("files", "The files to add", true, true)
+    add.complete_argument("files", fn(words: Array[String]) Array[String] {
+        return .{ "one.txt", "two.txt" }
+    })
+
+    let remote = cli.Command.new("remote", "Work with remotes")
+    let remote_add = cli.Command.new("add", "Add a remote")
+    remote_add.option("branch", "b", "The branch to follow", "main", "branch", "", false, false, .{ "main", "next" })
+    remote_add.option("name", "n", "Its name")
+    remote_add.complete_option("name", fn(words: Array[String]) Array[String] {
+        return .{ "origin", "upstream" }
+    })
+    remote_add.argument("url", "Where it lives", true)
+    remote.command(remote_add)
+
+    app.root.command(add)
+    app.root.command(remote)
+    app.add_completion_command()
+    return app
+}
+
+fn line(words: Array[String]) Array[String] {
+    let out = Array[String]{ "vcs" }
+    out.append_many(words)
+    return out
+}
+
+test "Completing commands" {
+    let app = completing_app()
+
+    // An empty word offers the commands
+    let top = app.complete(line(.{ "" }))
+    assert(top.contains("add"))
+    assert(top.contains("remote"))
+    assert(top.contains("completion"))
+
+    // A prefix narrows them
+    let narrowed = app.complete(line(.{ "re" }))
+    assert(narrowed.length == 1)
+    assert((narrowed.get(0) !? "") == "remote")
+
+    // Commands under a command
+    let under = app.complete(line(.{ "remote", "" }))
+    assert(under.contains("add"))
+    assert(!under.contains("remote"))
+}
+
+test "Completing options" {
+    let app = completing_app()
+
+    // Long names, of the command that was named
+    let root_options = app.complete(line(.{ "--" }))
+    assert(root_options.contains("--quiet"))
+    assert(root_options.contains("--config"))
+    assert(root_options.contains("--help"))
+    assert(root_options.contains("--version"))
+    // A subcommand offers its own, and no --version
+    let sub_options = app.complete(line(.{ "add", "--" }))
+    assert(sub_options.contains("--all"))
+    assert(sub_options.contains("--help"))
+    assert(!sub_options.contains("--quiet"))
+    assert(!sub_options.contains("--version"))
+
+    // A prefix narrows them
+    let narrowed = app.complete(line(.{ "--qu" }))
+    assert(narrowed.length == 1)
+    assert((narrowed.get(0) !? "") == "--quiet")
+
+    // A single dash offers the short forms as well
+    let dash = app.complete(line(.{ "-" }))
+    assert(dash.contains("-q"))
+    assert(dash.contains("-h"))
+    assert(dash.contains("--quiet"))
+    // A letter after it offers only the short ones
+    let shorts = app.complete(line(.{ "-q" }))
+    assert(shorts.contains("-q"))
+    assert(!shorts.contains("--quiet"))
+}
+
+test "Completing the value of an option" {
+    let app = completing_app()
+
+    // What an option allows
+    let choices = app.complete(line(.{ "remote", "add", "--branch", "" }))
+    assert(choices.length == 2)
+    assert(choices.contains("main"))
+    assert(choices.contains("next"))
+    assert(app.complete(line(.{ "remote", "add", "--branch", "n" })).length == 1)
+
+    // The short form takes a value the same way
+    assert(app.complete(line(.{ "remote", "add", "-b", "" })).contains("next"))
+
+    // What a function of the program lists
+    let names = app.complete(line(.{ "remote", "add", "--name", "" }))
+    assert(names.contains("origin"))
+    assert(names.contains("upstream"))
+
+    // Written with an `=`, the candidates carry it
+    let joined = app.complete(line(.{ "remote", "add", "--branch=" }))
+    assert(joined.contains("--branch=main"))
+    let joined_prefix = app.complete(line(.{ "remote", "add", "--branch=n" }))
+    assert(joined_prefix.length == 1)
+    assert((joined_prefix.get(0) !? "") == "--branch=next")
+
+    // A switch takes no value, so the word after it is a command or an argument again
+    let after_flag = app.complete(line(.{ "add", "--all", "" }))
+    assert(after_flag.contains("one.txt"))
+}
+
+test "Completing arguments" {
+    let app = completing_app()
+
+    // What the argument's own function lists
+    let files = app.complete(line(.{ "add", "" }))
+    assert(files.contains("one.txt"))
+    assert(files.contains("two.txt"))
+    assert(app.complete(line(.{ "add", "on" })).length == 1)
+
+    // A variadic argument keeps offering after the first one
+    assert(app.complete(line(.{ "add", "one.txt", "" })).contains("two.txt"))
+
+    // An argument without a function offers nothing, and neither does anything after `--`
+    assert(app.complete(line(.{ "remote", "add", "" })).length == 0)
+    assert(app.complete(line(.{ "add", "--", "" })).length == 0)
+
+    // The shell of the completion command completes itself
+    let shells = app.complete(line(.{ "completion", "" }))
+    assert(shells.contains("bash"))
+    assert(shells.contains("zsh"))
+    assert(shells.contains("fish"))
+}
+
+test "The scripts a shell is given" {
+    let app = completing_app()
+
+    let bash = app.completion_script(cli.Shell.bash)
+    assert(bash.contains("complete -o default -F _vcs_complete vcs"))
+    assert(bash.contains("__complete"))
+    assert(bash.contains("COMP_WORDS"))
+
+    let zsh = app.completion_script(cli.Shell.zsh)
+    assert(zsh.starts_with("#compdef vcs"))
+    assert(zsh.contains("compdef _vcs_complete vcs"))
+    assert(zsh.contains("compadd"))
+
+    let fish = app.completion_script(cli.Shell.fish)
+    assert(fish.contains("complete -c vcs -f -a '(__vcs_complete)'"))
+    assert(fish.contains("commandline -ct"))
+
+    // A program whose name has a dash still gets a usable function name
+    let dashed = cli.App.new("my-tool", "", "1.0")
+    assert(dashed.completion_script(cli.Shell.bash).contains("_my_tool_complete"))
+    assert(dashed.completion_script(cli.Shell.bash).contains("complete -o default -F _my_tool_complete my-tool"))
+}

@@ -1,0 +1,140 @@
+use valk.io
+
+/// A program: its root command, and the running of it.
+///
+/// ```valk
+/// use cli
+///
+/// fn main(args: Array[String]) {
+///     let app = cli.App.new("greet", "Greet someone", "1.0.0")
+///     app.root.option("times", "n", "How often to greet", "1")
+///     app.root.argument("name", "Who to greet", true)
+///     app.root.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+///         let times = ctx.int("times", 1) !>
+///         let i: uint = 0
+///         while i++ < times.to(uint) : println("Hello " + ctx.arg("name"))
+///         return 0
+///     })
+///     exit(app.run(args))
+/// }
+/// ```
++ class App {
+    /// The command the program itself is.
+    + root: Command
+    /// The version, shown by `--version`.
+    + version: String ("")
+    /// Where the help text goes. Standard output by default.
+    + out: io.Writer (io.stdout())
+    /// Where errors go. Standard error by default.
+    + errors: io.Writer (io.stderr())
+
+    /// Creates a program with a root command of the same name.
+    + static fn new(name: String, summary: String (""), version: String ("")) App {
+        return App {
+            root: Command.new(name, summary)
+            version: version
+        }
+    }
+
+    /// Reads the command line and runs the command it names.
+    ///
+    /// Returns what the program should exit with: what the command returned, 0 after help or the
+    /// version, and 2 when the command line could not be read, which is what a shell expects for
+    /// a usage error.
+    ///
+    /// `args` is what `main` is given, the program path first.
+    + fn run(args: Array[String]) i32 {
+        // The shells ask what to offer through a command of their own, which is not part of the
+        // help and answers with one candidate per line
+        if (args.get(1) !? "") == "__complete" {
+            // The shell passes the whole line, the program name included, so the words are
+            // taken as they are rather than behind the path this program was started with
+            let words = Array[String]{}
+            let i: uint = 2
+            while i < args.length {
+                words.append(args.get(i) !? "")
+                i++
+            }
+            if words.length == 0 : words.append(this.root.name)
+            each this.complete(words) as candidate {
+                this.out.write(candidate + "\n") _
+            }
+            return 0
+        }
+
+        let context = parse_command_line(this.root, args) ! {
+            this.write_error(E.message, E.command)
+            return 2
+        }
+        let command = context.command
+
+        if context.version_asked {
+            this.write(this.version.length > 0 ? this.root.name + " " + this.version : this.root.name)
+            return 0
+        }
+        if context.help_asked {
+            this.write(help_text(command, this.version))
+            return 0
+        }
+
+        let handler = command.run
+        if !isset(handler) {
+            // A command that only holds other commands shows what they are
+            this.write(help_text(command, this.version))
+            return command.commands.length > 0 ? 1 : 0
+        }
+
+        return handler(context) ! {
+            this.write_error(E.message, E.command)
+            return 2
+        }
+    }
+
+    /// Reads the command line without running anything, for a program that answers by itself.
+    + fn parse(args: Array[String]) Context !Error {
+        return parse_command_line(this.root, args) !>
+    }
+
+    /// Returns the help text of the root command.
+    + fn help() String {
+        return help_text(this.root, this.version)
+    }
+
+    fn write(text: String) {
+        this.out.write(text) _
+        if !text.ends_with("\n") : this.out.write("\n") _
+    }
+
+    // An error the person who typed the command should read: what went wrong, then how the
+    // command is used
+    fn write_error(message: String, command_path: String) {
+        let out = ByteBuffer.new(128)
+        out.write(colors ? "error: ".ansi.red(true) : "error: ")
+        out.write(message)
+        out.write("\n")
+        let command = this.find_command(command_path)
+        if isset(command) {
+            out.write("\n")
+            out.write(heading("Usage:"))
+            out.write("\n  ")
+            out.write(command.usage())
+            out.write("\n\n")
+            out.write("Run '" + command.path() + " --help' to see what it takes.\n")
+        }
+        this.errors.write(out.to_string()) _
+    }
+
+    // The command a path such as `tool remote add` names
+    fn find_command(path: String) ?Command {
+        if path.length == 0 : return null
+        let names = path.split(" ")
+        let command = this.root
+        each names as name, index {
+            if index == 0 : continue
+            let sub = command.find(name)
+            if !isset(sub) : return command
+            command = sub
+        }
+        return command
+    }
+}

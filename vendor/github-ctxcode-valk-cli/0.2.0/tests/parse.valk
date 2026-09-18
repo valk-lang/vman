@@ -1,0 +1,142 @@
+use cli
+
+test "Options and switches" {
+    let app = simple_app()
+
+    // Long names, with the value as the next word or behind an `=`
+    let ctx = app.parse(args(.{ "--output", "a.txt", "--level=3", "--verbose", "in.txt" })) ! {
+        println(E.message)
+        assert(false)
+        return
+    }
+    assert(ctx.value("output") == "a.txt")
+    assert((ctx.int("level") ! { assert(false) return }) == 3)
+    assert(ctx.flag("verbose"))
+    assert(ctx.arg("source") == "in.txt")
+
+    // Single letters, and a value written against the letter
+    let short = app.parse(args(.{ "-o", "b.txt", "-l2", "-v", "in.txt" })) ! { println(E.message) assert(false) return }
+    assert(short.value("output") == "b.txt")
+    assert((short.int("level") ! { assert(false) return }) == 2)
+    assert(short.flag("verbose"))
+
+    // Switches written together, with an option at the end of the run
+    let run = app.parse(args(.{ "-vo", "c.txt", "in.txt" })) ! { println(E.message) assert(false) return }
+    assert(run.flag("verbose"))
+    assert(run.value("output") == "c.txt")
+
+    // What was not given falls back to the default
+    let bare = app.parse(args(.{ "in.txt" })) ! { assert(false) return }
+    assert(bare.value("output") == "out.txt")
+    assert(!bare.flag("verbose"))
+    assert(!bare.has("output"))
+    assert(bare.has_arg("source"))
+}
+
+test "Arguments" {
+    let app = simple_app()
+
+    let ctx = app.parse(args(.{ "first.txt", "second.txt", "third.txt" })) ! { println(E.message) assert(false) return }
+    assert(ctx.arg("source") == "first.txt")
+    let extra = ctx.args("extra")
+    assert(extra.length == 2)
+    assert((extra.get(1) !? "") == "third.txt")
+
+    // Values and options may be mixed in any order
+    let mixed = app.parse(args(.{ "first.txt", "--verbose", "second.txt" })) ! { assert(false) return }
+    assert(mixed.arg("source") == "first.txt")
+    assert(mixed.args("extra").length == 1)
+    assert(mixed.flag("verbose"))
+
+    // Everything after `--` is handed on untouched, `-x` and all
+    let rest = app.parse(args(.{ "in.txt", "--", "--not-mine", "-x", "value" })) ! { assert(false) return }
+    assert(rest.arg("source") == "in.txt")
+    assert(rest.rest.length == 3)
+    assert((rest.rest.get(0) !? "") == "--not-mine")
+
+    // A `-` on its own is a value, as tools read it for standard input
+    let dash = app.parse(args(.{ "-" })) ! { println(E.message) assert(false) return }
+    assert(dash.arg("source") == "-")
+}
+
+test "Repeated options and choices" {
+    let app = cli.App.new("tool", "", "")
+    app.root.option("include", "I", "A directory to search", "", "dir", "", false, true)
+    app.root.option("mode", "m", "How to run", "fast", "mode", "", false, false, .{ "fast", "slow" })
+
+    let ctx = app.parse(args(.{ "-I", "one", "--include", "two", "--include=three" })) ! {
+        println(E.message)
+        assert(false)
+        return
+    }
+    let includes = ctx.values("include")
+    assert(includes.length == 3)
+    assert((includes.get(2) !? "") == "three")
+    // The last value is what `value` answers with
+    assert(ctx.value("include") == "three")
+
+    // A choice that is not offered is refused, and the message says what is
+    app.parse(args(.{ "--mode", "sideways" })) ! {
+        assert(error_is(E.code, invalid_value))
+        assert(E.message.contains("fast, slow"))
+    }
+    assert((app.parse(args(.{ "--mode", "slow" })) ! { assert(false) return }).value("mode") == "slow")
+
+    // An option that is not repeatable refuses a second value
+    app.parse(args(.{ "--mode", "fast", "--mode", "slow" })) ! {
+        assert(error_is(E.code, usage))
+        assert(E.message.contains("more than once"))
+        return
+    }
+    assert(false)
+}
+
+test "Errors" {
+    let app = simple_app()
+
+    // An option the command does not have, with the nearest one offered
+    app.parse(args(.{ "--outpu", "x", "in.txt" })) ! {
+        assert(error_is(E.code, unknown_flag))
+        assert(E.message.contains("--outpu"))
+        assert(E.message.contains("Did you mean '--output'"))
+    }
+    // Nothing near enough is no suggestion at all
+    app.parse(args(.{ "--wildly-different", "in.txt" })) ! {
+        assert(error_is(E.code, unknown_flag))
+        assert(!E.message.contains("Did you mean"))
+    }
+    // An option that takes a value, at the end of the line
+    app.parse(args(.{ "in.txt", "--output" })) ! {
+        assert(error_is(E.code, missing_value))
+        assert(E.message.contains("--output"))
+    }
+    // A switch given a value
+    app.parse(args(.{ "--verbose=yes", "in.txt" })) ! {
+        assert(error_is(E.code, usage))
+        assert(E.message.contains("switch"))
+    }
+    // A required argument that was left out
+    app.parse(args(.{ "--verbose" })) ! {
+        assert(error_is(E.code, missing_argument))
+        assert(E.message.contains("<source>"))
+    }
+    // A value that is not a number
+    let ctx = app.parse(args(.{ "--level", "high", "in.txt" })) ! { assert(false) return }
+    ctx.int("level") ! {
+        assert(error_is(E.code, invalid_value))
+        assert(E.message.contains("whole number"))
+        return
+    }
+    assert(false)
+}
+
+test "Required options" {
+    let app = cli.App.new("tool", "", "")
+    app.root.option("name", "n", "Who", "", "name", "", true)
+
+    app.parse(args(.{})) ! {
+        assert(error_is(E.code, missing_argument))
+        assert(E.message.contains("--name is required"))
+    }
+    assert((app.parse(args(.{ "--name", "ada" })) ! { assert(false) return }).value("name") == "ada")
+}

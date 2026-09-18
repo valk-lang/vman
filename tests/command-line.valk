@@ -1,0 +1,71 @@
+use vman
+use cli
+
+@ignore_access
+
+test "CLI: quotes shell arguments" {
+    #if OS == "win"
+    assert(vman.shell_quote("repo path") == "\"repo path\"")
+    #else
+    assert(vman.shell_quote("repo path") == "'repo path'")
+    assert(vman.shell_quote("it's") == "'it'\\''s'")
+    #end
+}
+
+test "CLI: the command line is read into commands and arguments" {
+    // The command tree is what `vman --help` prints and what the shells complete, so it is
+    // worth knowing that a line means what it looks like
+    let app = vman.build_app()
+
+    let install = app.parse(.{ "vman", "install", "github.com/user/repo", "0.2.x", "alias" }) ! {
+        assert(false)
+        return
+    }
+    assert(install.command.name == "install")
+    assert(install.arg("package") == "github.com/user/repo")
+    assert(install.arg("version") == "0.2.x")
+    assert(install.arg("alias") == "alias")
+
+    // Every argument of install may be left out
+    let bare = app.parse(.{ "vman", "install" }) ! { assert(false) return }
+    assert(!bare.has_arg("package"))
+
+    // The ones that need an argument say so instead of doing nothing
+    app.parse(.{ "vman", "remove" }) ! {
+        assert(error_is(E.code, missing_argument))
+        assert(E.message.contains("<package>"))
+    }
+
+    // A command that does not exist offers the nearest one
+    app.parse(.{ "vman", "instal" }) ! {
+        assert(error_is(E.code, unknown_command))
+        assert(E.message.contains("Did you mean 'install'"))
+        return
+    }
+    assert(false)
+}
+
+test "CLI: what the shells are told to offer" {
+    let app = vman.build_app()
+
+    let commands = app.complete(.{ "vman", "" })
+    assert(commands.contains("install"))
+    assert(commands.contains("use"))
+    assert(commands.contains("completion"))
+
+    // `vman use <tab>` offers the versions that can be asked for
+    let versions = app.complete(.{ "vman", "use", "" })
+    assert(versions.contains("latest"))
+    assert(versions.contains("dev"))
+
+    // `vman clean <tab>` offers what can be cleaned
+    let clean = app.complete(.{ "vman", "clean", "" })
+    assert(clean.length == 3)
+    assert(clean.contains("packages"))
+    assert(clean.contains("repos"))
+
+    // And the scripts are the ones the shells expect
+    assert(app.completion_script(cli.Shell.bash).contains("complete -o default -F _vman_complete vman"))
+    assert(app.completion_script(cli.Shell.zsh).starts_with("#compdef vman"))
+    assert(app.completion_script(cli.Shell.fish).contains("complete -c vman"))
+}

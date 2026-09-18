@@ -1,0 +1,93 @@
+/// What the command line said, ready to be read by the command that runs.
+///
+/// ```valk
+/// build.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+///     if ctx.flag("verbose") : println("building " + ctx.arg("target", "everything"))
+///     let jobs = ctx.int("jobs", 1) !>
+///     each ctx.rest as passed_through : println("extra: " + passed_through)
+///     return 0
+/// })
+/// ```
++ class Context {
+    /// The command that is running.
+    + command: Command
+    /// The program name as it was typed, which is the first item of the command line.
+    + program: String ("")
+    /// Whatever followed a `--`, handed on untouched.
+    ~ rest: Array[String] (.{})
+    /// Whether `--help` or `-h` was written.
+    ~+ help_asked: bool (false)
+    /// Whether `--version` was written.
+    ~+ version_asked: bool (false)
+    // Switches that were given, by long name
+    given_flags: Map[bool] (.{})
+    // Option values that were given, by long name, in the order they were given
+    given_options: Map[Array[String]] (.{})
+    // Arguments, by name, with the last one holding everything left when it is variadic
+    given_arguments: Map[Array[String]] (.{})
+
+    /// Returns whether a switch was given, or its environment variable is on.
+    + fn flag(long: String) bool {
+        return this.given_flags.get(long) !? false
+    }
+
+    /// Returns whether an option was given a value, on the command line or through its
+    /// environment variable.
+    + fn has(long: String) bool {
+        let values = this.given_options.get(long) !? .{}
+        return values.length > 0
+    }
+
+    /// Returns the value of an option: what was given, else its environment variable, else its
+    /// default, else `fallback`.
+    + fn value(long: String, fallback: String ("")) String {
+        let values = this.given_options.get(long) !? .{}
+        if values.length > 0 : return values.get(values.length - 1) !? fallback
+        let option = this.command.find_option(long)
+        if isset(option) && option.default.length > 0 : return option.default
+        return fallback
+    }
+
+    /// Returns every value an option was given, for one that may be repeated.
+    + fn values(long: String) Array[String] {
+        return this.given_options.get(long) !? .{}
+    }
+
+    /// Returns the value of an option as a whole number.
+    ///
+    /// Throws `invalid_value` when the text is not a number, naming the option.
+    + fn int(long: String, fallback: int (0)) int !Error {
+        let text = this.value(long)
+        if text.length == 0 : return fallback
+        return text.to_int() ! {
+            throw .invalid_value { message: "--" + long + " takes a whole number, not '" + text + "'", command: this.command.path() }
+        }
+    }
+
+    /// Returns the value of an option as a number.
+    + fn float(long: String, fallback: float (0)) float !Error {
+        let text = this.value(long)
+        if text.length == 0 : return fallback
+        return text.to_float() ! {
+            throw .invalid_value { message: "--" + long + " takes a number, not '" + text + "'", command: this.command.path() }
+        }
+    }
+
+    /// Returns an argument by name, or `fallback` when it was not given.
+    + fn arg(name: String, fallback: String ("")) String {
+        let values = this.given_arguments.get(name) !? .{}
+        if values.length == 0 : return fallback
+        return values.get(0) !? fallback
+    }
+
+    /// Returns whether an argument was given.
+    + fn has_arg(name: String) bool {
+        let values = this.given_arguments.get(name) !? .{}
+        return values.length > 0
+    }
+
+    /// Returns every value of a variadic argument, in order.
+    + fn args(name: String) Array[String] {
+        return this.given_arguments.get(name) !? .{}
+    }
+}

@@ -1,0 +1,56 @@
+use cli
+
+// A small tool with two commands, to show what the package does. Try:
+//
+//   greet --help
+//   greet hello Ada --times 2 --loud
+//   greet list --format json
+fn main(args: Array[String]) {
+    let app = cli.App.new("greet", "Greet people, politely or otherwise", "1.0.0")
+    app.root.description = "Every command takes --help, which says what it does."
+    app.root.flag("quiet", "q", "Print nothing but the result")
+
+    let hello = cli.Command.new("hello", "Greet someone by name")
+    hello.argument("name", "Who to greet", true)
+    hello.argument("others", "Anyone else", false, true)
+    hello.option("times", "n", "How often to greet them", "1")
+    hello.flag("loud", "l", "Greet in capitals")
+    hello.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        let times = ctx.int("times", 1) !>
+        if times < 1 : throw .invalid_value { message: "--times takes a number above zero", command: ctx.command.path() }
+
+        let names = Array[String]{ ctx.arg("name") }
+        names.append_many(ctx.args("others"))
+
+        let i: int = 0
+        while i++ < times {
+            each names as name {
+                let line = "Hello " + name + "!"
+                println(ctx.flag("loud") ? line.upper() : line)
+            }
+        }
+        return 0
+    })
+
+    let list = cli.Command.new("list", "List the people greeted so far")
+    list.option("format", "f", "How to print them", "text", "format", "", false, false, .{ "text", "json" })
+    list.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        let people = Array[String]{ "Ada", "Bob" }
+        if ctx.value("format") == "json" {
+            println("[\"" + people.join("\", \"") + "\"]")
+            return 0
+        }
+        each people as person : println(person)
+        return 0
+    })
+
+    // What the shells should offer for --format is what the option allows
+    hello.complete_argument("name", fn(words: Array[String]) Array[String] {
+        return .{ "Ada", "Bob", "Cid" }
+    })
+
+    app.root.command(hello)
+    app.root.command(list)
+    app.add_completion_command()
+    exit(app.run(args))
+}

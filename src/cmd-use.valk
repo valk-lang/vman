@@ -2,11 +2,10 @@
 use valk.fs
 use valk.ansi
 
-fn cmd_use(args: Array[String], options: Array[String]) {
+fn cmd_use(requested: ?String) {
 
     let vv = get_versions()
     let version: ?Version = null
-    let requested = args.get(0) !? null
     if isset(requested) {
         version = Version.new(requested) !? null
         if !isset(version) {

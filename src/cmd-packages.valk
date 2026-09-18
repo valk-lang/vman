@@ -2,17 +2,12 @@
 use valk.ansi
 use valk.fs
 
-fn cmd_package_install(args: Array[String], options: Array[String]) {
+fn cmd_package_install(install_pkg_name: ?String, install_mask: ?String, alias: ?String) {
 
     // Project
     let p = Project.new()
 
-    // Source
-    let install_pkg_name = args.get(0) !? null
     if isset(install_pkg_name) {
-        // Version mask to install
-        let install_mask = args.get(1) !? null
-        let alias = args.get(2) !? null
         // Package
         let pkg = Package.init(p, install_pkg_name, install_mask)
 
@@ -66,12 +61,10 @@ fn cmd_package_update() {
     p.install_packages()
 }
 
-fn cmd_package_remove(args: Array[String], options: Array[String]) {
+fn cmd_package_remove(name: String) {
 
     // Project
     let p = Project.new()
-
-    let name = args.get(0) ! help(1)
 
     let deps = p.config.get("dependencies")
     if !deps.has(name) {
@@ -83,8 +76,7 @@ fn cmd_package_remove(args: Array[String], options: Array[String]) {
     fs.write(p.config_path, p.config.encode(true)) ! error("Failed to save file: " + p.config_path)
 }
 
-fn cmd_package_versions(args: Array[String]) {
-    let name = args.get(0) ! help(1)
+fn cmd_package_versions(name: String) {
     let src = Source.new(name)
     let versions = src.get_versions()
     if versions.length == 0 : error("Package '%name' hasnt created any versions yet")
