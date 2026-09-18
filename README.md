@@ -16,37 +16,38 @@ vman -h
 ```
 
 ```
----------------------------
- Valk package manager 0.1.2
----------------------------
+Valk package manager
 
-📦 Package commands
+Usage:
+  vman <command>
 
- vman init              Initialize a valk.json config
- vman install           Install packages defined in valk.json
- vman install {pkg} [{version-mask}]
-                        Install a package in the current project
- vman update            Update packages to the latest matching versions
- vman remove {pkg}      Remove a package by name
- vman versions {pkg}    List package versions and the valk versions they support
+Installs packages for a project, and the valk versions to build it with.
 
-💿 Valk version control
+Commands:
+  install      Install the packages of this project, or add one
+  update       Update the packages to the newest versions they allow
+  remove       Remove a package from this project
+  versions     List the versions of a package, and the valk versions they need
+  init         Write a valk.json for this project
+  use          Install a valk version and make it the one in use
+  unuse        Remove an installed valk version
+  self-update  Update vman itself
+  clean        Remove what is no longer needed
+  version      Show the version of vman
+  fetch        Save the list of released versions
+  completion   Print the script that completes this program in your shell
 
- vman use 0.3.4         Install valk version 0.3.4
- vman use               Install the version from valk.json
- vman use latest        Install latest version
- vman use dev           Install the dev valk version
- vman unuse {version}   Remove an installed Valk version
+Options:
+  -h, --help     Show this help
+      --version  Show the version
+```
 
-⚙️ Other
+Every command explains itself with `vman <command> -h`, for example:
 
- vman version           Show vman version
- vman self-update       Update vman itself
-
- vman clean packages    Remove unused vendor packages
- vman clean cache       Clear cached requests and downloads
- vman clean repos       Remove cloned package repositories
- ```
+```
+vman use -h
+vman clean -h
+```
 
 ## Compiler version requirements
 
