@@ -21,6 +21,9 @@ fn cmd_package_install(args: Array[String], options: Array[String]) {
         // Install
         pkg.install()
 
+        // The package brings its own dependencies; they are installed next to it
+        p.install_nested_dependencies()
+
         // Add to config
         p.add_pkg_to_config(pkg, alias)
 

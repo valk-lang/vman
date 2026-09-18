@@ -1,3 +1,6 @@
+// How deep dependencies of dependencies may nest before the configs look like a cycle
+value MAX_DEPENDENCY_DEPTH (10)
+
 
 use valk.fs
 use valk.json
@@ -8,6 +11,10 @@ class Project {
     config_path: String
     config: json.Value
     packages: Map[Package] (.{})
+    // The valk version of the project that pulled this one in. A package inside `vendor` is
+    // built by the compiler of the project that uses it, so its own dependencies are chosen for
+    // that version rather than the one the package was written against.
+    inherited_valk: ?Version (null)
 
     static fn new() SELF {
         let p = SELF.load()
@@ -35,6 +42,8 @@ class Project {
 
     // The valk version the project uses, from "use" in valk.json
     fn valk_version() ?Version {
+        let inherited = this.inherited_valk
+        if isset(inherited) : return inherited
         let value = this.config.get("use").string
         if value.is_empty() : return null
         return Version.new(value) ! error("Invalid 'use' version in valk.json: " + value)
@@ -56,6 +65,28 @@ class Project {
             let conf = json.decode(str) ! continue
             let req = ValkRequire.from_config(conf)
             if !req.is_compat(valk) : warn("Dependency '" + key + "' requires valk " + req.str() + " but the project uses " + valk.name)
+        }
+    }
+
+    // A project rooted at an installed package, so that the package's own dependencies can be
+    // installed into its vendor directory
+    static fn for_package(root: Project, dir: String) ?SELF {
+        let config_path = fs.add(dir, "valk.json")
+        if !fs.exists(config_path) : return null
+
+        let str = fs.read(config_path) ! error("Failed to read: " + config_path)
+        let data = json.decode(str) ! error("Invalid json syntax in '%config_path'")
+        if data.get("dependencies").object.length == 0 : return null
+
+        let vendor_dir = fs.add(dir, "vendor")
+        if !fs.is_dir(vendor_dir) : fs.create_dir(vendor_dir) ! error("Failed to create directory: " + vendor_dir)
+
+        return SELF {
+            dir: dir
+            vendor_dir: vendor_dir
+            config_path: config_path
+            config: data
+            inherited_valk: root.valk_version()
         }
     }
 
@@ -126,13 +157,16 @@ class Project {
         fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
     }
 
-    fn install_packages() {
+    fn install_packages(depth: uint (0), announce: bool (true)) {
         let deps = this.config.get("dependencies").object
 
         if deps.length == 0 {
-            println("# This project has no dependencies")
+            if announce : println("# This project has no dependencies")
             return
         }
+        // A package may depend on a package that depends on another; the nesting is bounded so
+        // that a cycle in the configs cannot run forever
+        if depth > MAX_DEPENDENCY_DEPTH : error("Dependencies nest deeper than %{MAX_DEPENDENCY_DEPTH} levels, which looks like a cycle: " + this.config_path)
 
         each deps.values.keys() as key {
             let dep = deps.get(key) ! {
@@ -174,15 +208,115 @@ class Project {
                 println("> Installing: %name | %{pkg.ver.name}")
                 pkg.install()
             }
+
+            this.packages.set(pkg.id, pkg)
         }
 
         this.config = this.config.set("dependencies", deps)
         fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
 
+        // A dependency may itself depend on packages; they are installed next to it rather than
+        // inside it, so that a package two dependencies share is one package to the compiler
+        this.install_nested_dependencies()
+
         let valk = this.valk_version()
         if isset(valk) : this.check_dep_requirements(valk)
 
-        println("# All dependencies have been installed")
+        if announce : println("# All dependencies have been installed")
+    }
+
+    // Installs the dependencies of the packages in `vendor`, into that same `vendor` directory,
+    // and points every package at the copy that lands there.
+    //
+    // The compiler loads a directory once, whoever asks for it, so a package that two of them
+    // depend on must resolve to one directory: a version already in `vendor` that fits is
+    // reused, and only a requirement nothing satisfies installs another version.
+    fn install_nested_dependencies() {
+        let round: uint = 0
+        while round++ < MAX_DEPENDENCY_DEPTH {
+            if !this.hoist_round() : return
+        }
+        error("Dependencies nest deeper than %{MAX_DEPENDENCY_DEPTH} levels, which looks like a cycle")
+    }
+
+    // One pass over every installed package. Returns whether anything changed, so that a
+    // package pulled in by this pass gets a pass of its own.
+    fn hoist_round() bool {
+        let changed = false
+        each this.installed_package_dirs() as pkg_dir {
+            let config_path = fs.add(pkg_dir, "valk.json")
+            let str = fs.read(config_path) ! continue
+            let conf = json.decode(str) ! continue
+            let deps = conf.get("dependencies").object
+            if deps.length == 0 : continue
+
+            let rewritten = false
+            each deps.values.keys() as key {
+                let dep = deps.get(key) ! continue
+                let src = dep.get("src").string
+                // Already pointed at a directory, by this pass or by the package itself
+                if src.is_empty() || src.starts_with(".") : continue
+
+                let mask = dep.get("version").string
+                if mask.is_empty() : mask = "x.x.x"
+                let source = Source.new(src)
+                let assoc = source.assoc_name()
+
+                let version = this.vendored_version_for(assoc, mask)
+                if !isset(version) {
+                    // Nothing here fits, so it is installed next to the packages that need it
+                    let pkg = Package.init(this, src, mask)
+                    if !pkg.installed() {
+                        println("> Installing: %src | %{pkg.ver.name}")
+                        pkg.install()
+                    }
+                    version = pkg.ver.name
+                    changed = true
+                }
+
+                // `../../<package>/<version>`: the copy in this project's vendor directory
+                dep = dep.remove("current").remove("current_hash")
+                dep = dep.set("src", json.new_string("../../" + assoc + "/" + version))
+                deps.set(key, dep)
+                rewritten = true
+            }
+
+            if rewritten {
+                conf = conf.set("dependencies", deps)
+                fs.write(config_path, conf.encode(true)) ! error("Failed to save file: " + config_path)
+            }
+        }
+        return changed
+    }
+
+    // The versions of every package that is installed in this project's vendor directory
+    fn installed_package_dirs() Array[String] {
+        let dirs = Array[String]{}
+        let packages = fs.files_in(this.vendor_dir, false, false, true) !? .{}
+        each packages as package_dir {
+            let versions = fs.files_in(package_dir, false, false, true) !? .{}
+            each versions as version_dir {
+                dirs.append(version_dir)
+            }
+        }
+        return dirs
+    }
+
+    // A version of `assoc` that is installed and fits `mask`, newest first; null when there is
+    // none
+    fn vendored_version_for(assoc: String, mask: String) ?String {
+        let m = Mask.new(mask) ! return null
+        let pkg_dir = fs.add(this.vendor_dir, assoc)
+        if !fs.is_dir(pkg_dir) : return null
+        let found: ?Version = null
+        each (fs.files_in(pkg_dir, false, false, true) !? .{}) as version_dir {
+            let name = fs.basename(version_dir)
+            let version = Version.new(name) ! continue
+            if !m.is_compat(version) : continue
+            if !isset(found) || version > found : found = version
+        }
+        if !isset(found) : return null
+        return found.name
     }
 
     fn clean_vendor() {

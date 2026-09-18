@@ -114,3 +114,86 @@ synctest "Project: supplies the default mask for pinned dependencies" {
     let installed = project.config.get("dependencies").get("example")
     assert(installed.get("version").string == "x.x.x")
 }
+
+// Builds `dir` and every directory above it inside `root`
+fn make_dirs(root: String, parts: Array[String]) String {
+    let path = root
+    each parts as part {
+        path = fs.add(path, part)
+        if !fs.is_dir(path) : fs.create_dir(path) ! return path
+    }
+    return path
+}
+
+fn write_config(dir: String, content: String) {
+    fs.write(fs.add(dir, "valk.json"), content) ! {}
+}
+
+fn dependency_src(config_path: String, name: String) String {
+    let conf: json.Value = json.decode(fs.read(config_path) !? "") !? json.new_object()
+    return conf.get("dependencies").get(name).get("src").string
+}
+
+synctest "Project: points a package at the copy of its dependency in vendor" {
+    let root = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-test" })
+    fs.delete_all(root) _
+    let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-test", "vendor" })
+
+    // A package that depends on another package, as it arrives from its repository
+    let pkg_dir = make_dirs(vendor, .{ "github-ctxcode-example", "1.0.0" })
+    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/ctxcode/dep\",\"version\":\"0.1.x\",\"current\":\"0.1.2\",\"current_hash\":\"abc\"}}}")
+
+    // Two versions of that dependency are already installed; the newest that fits the mask wins
+    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "0.1.4" }), "{\"name\":\"dep\"}")
+    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "0.2.0" }), "{\"name\":\"dep\"}")
+
+    let project = vman.Project {
+        dir: root
+        vendor_dir: vendor
+        config_path: fs.add(root, "valk.json")
+        config: json.new_object()
+    }
+
+    // Nothing has to be downloaded, since a version that fits is already there
+    let installed_something = project.hoist_round()
+    assert(!installed_something)
+
+    // The package now points at that directory, which is where the project's own dependency on
+    // the same package resolves to as well: one directory, one package
+    let src = dependency_src(fs.add(pkg_dir, "valk.json"), "dep")
+    assert(src == "../../github-ctxcode-dep/0.1.4")
+    assert(fs.is_dir(fs.add(pkg_dir, src)))
+
+    // The pinned version is gone, so nothing points at the copy that is no longer used
+    let conf: json.Value = json.decode(fs.read(fs.add(pkg_dir, "valk.json")) !? "") !? json.new_object()
+    assert(!conf.get("dependencies").get("dep").has("current"))
+
+    // A second pass leaves it alone
+    assert(!project.hoist_round())
+    assert(dependency_src(fs.add(pkg_dir, "valk.json"), "dep") == "../../github-ctxcode-dep/0.1.4")
+
+    fs.delete_all(root) _
+}
+
+synctest "Project: a version that does not fit the mask is not reused" {
+    let root = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-mask-test" })
+    fs.delete_all(root) _
+    let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-mask-test", "vendor" })
+
+    let pkg_dir = make_dirs(vendor, .{ "github-ctxcode-example", "1.0.0" })
+    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/ctxcode/dep\",\"version\":\"2.x.x\"}}}")
+    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "1.5.0" }), "{\"name\":\"dep\"}")
+
+    let project = vman.Project {
+        dir: root
+        vendor_dir: vendor
+        config_path: fs.add(root, "valk.json")
+        config: json.new_object()
+    }
+
+    // 1.5.0 does not fit `2.x.x`, so the package keeps asking for a package to install
+    assert(!isset(project.vendored_version_for("github-ctxcode-dep", "2.x.x")))
+    assert(isset(project.vendored_version_for("github-ctxcode-dep", "1.x.x")))
+
+    fs.delete_all(root) _
+}
