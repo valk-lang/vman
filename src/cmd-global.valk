@@ -1,0 +1,261 @@
+use valk.fs
+use valk.json
+use valk.ansi
+use valk.core
+
+
+
+fn cmd_global_install(name: String, mask: ?String) {
+    let src = Source.new(name)
+    let alias = global_alias(src)
+    let dir = global_dir(true) + alias
+
+    let valk = current_used_version() ?! error("No valk version in use. Run 'vman use latest' first")
+
+    // The package gets a project of its own, so installing it is the ordinary install
+    if !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)
+    let config: json.Value = json.new_object()
+    config = config.set("use", json.new_string(valk.name))
+    fs.write(fs.add(dir, "valk.json"), config.encode(true)) ! error("Failed to write the config of: " + alias)
+
+    let started_in = fs.cwd() !? "."
+    fs.chdir(dir) ! error("Failed to enter directory: " + dir)
+    cmd_package_install(name, mask, alias)
+    fs.chdir(started_in) ! error("Failed to return to directory: " + started_in)
+
+    let installed = installed_package_dir(dir, alias) ?! error("Package '" + alias + "' was not installed")
+    let programs = global_builds_of(installed)
+    if programs.length == 0 {
+        fs.delete_all(dir) _
+        error("Package '" + alias + "' offers no programs. A package offers one with \"make\" in its valk.json: { \"name\": { \"dir\": \"src\", \"global\": true } }")
+    }
+
+    let names = Array[String]{}
+    each programs as program {
+        build_program(dir, installed, program)
+        link_program(dir, program.name, link_dir(true))
+        names.append(program.name)
+    }
+    remember_programs(dir, names)
+
+    println("")
+    if ansi.supported() : println("# Installed: " + names.join(", ").ansi.green() + " (" + link_dir() + ")")
+    else : println("# Installed: " + names.join(", ") + " (" + link_dir() + ")")
+    warn_if_not_on_path()
+}
+
+fn cmd_global_remove(name: String) {
+    let dir = global_dir() + name
+    if !fs.is_dir(dir) : error("Package '" + name + "' is not installed globally")
+
+    each remembered_programs(dir) as program {
+        let link = link_path(program, link_dir())
+        if !fs.exists(link) : continue
+        fs.delete_file(link) ! warn("Failed to remove: " + link)
+        println("# Removed: " + link)
+    }
+    fs.delete_all(dir) ! error("Failed to remove: " + dir)
+    println("# Removed: " + name)
+}
+
+fn cmd_global_list() {
+    let dir = global_dir()
+    let names = global_package_names()
+    if names.length == 0 {
+        println("# No packages are installed globally")
+        println("Install one with: vman global install github.com/user/repo")
+        return
+    }
+    println("# Installed globally")
+    each names as name {
+        let pkg_dir = fs.add(dir, name)
+        let version = installed_version(pkg_dir, name)
+        let programs = remembered_programs(pkg_dir).join(", ")
+        let shown = ansi.supported() ? name.ansi.cyan() : name
+        println("  " + shown + pad_to(name, 16) + version + "  " + programs)
+    }
+    println("")
+    println("Their programs are in " + link_dir())
+}
+
+// Installs every globally installed package again, at the newest version it allows
+fn cmd_global_update() {
+    let names = global_package_names()
+    if names.length == 0 {
+        println("# No packages are installed globally")
+        return
+    }
+    each names as name {
+        let dir = fs.add(global_dir(), name)
+        let source = installed_source(dir, name) ?! continue
+        let mask = installed_mask(dir, name)
+        println("# Updating: " + name)
+        cmd_global_install(source, mask)
+    }
+}
+
+// The name the package is installed under, which is also the name to remove it by: the
+// repository name, without the `valk-` prefix, as a package name
+fn global_alias(src: Source) String {
+    return project_name_of(src.repo_name)
+}
+
+fn global_package_names() Array[String] {
+    let dir = global_dir()
+    if !fs.is_dir(dir) : return .{}
+    let names = Array[String]{}
+    each fs.files_in(dir, false, false, true, true) !? .{} as name {
+        if name.starts_with(".") : continue
+        names.append(name)
+    }
+    return names.sorted(fn(a: String, b: String) bool { return a > b })
+}
+
+// The directory the package was installed in, read from the config the install wrote
+fn installed_package_dir(dir: String, alias: String) ?String {
+    let dep = dependency_config(dir, alias) ?! return null
+    let version = dep.get("current").string
+    if version.is_empty() : return null
+    let src = Source.new(dep.get("src").string)
+    return fs.add(fs.add(fs.add(dir, "vendor"), src.assoc_name()), version)
+}
+
+fn dependency_config(dir: String, alias: String) ?json.Value {
+    let path = fs.add(dir, "valk.json")
+    let str = fs.read(path) ! return null
+    let config = json.decode(str) ! return null
+    let dep = config.get("dependencies").get(alias)
+    if !dep.has("src") : return null
+    return dep
+}
+
+fn installed_version(dir: String, alias: String) String {
+    let dep = dependency_config(dir, alias) ?! return "?"
+    let version = dep.get("current").string
+    return version.is_empty() ? "?" : version
+}
+
+fn installed_source(dir: String, alias: String) ?String {
+    let dep = dependency_config(dir, alias) ?! return null
+    let src = dep.get("src").string
+    return src.is_empty() ? null : src
+}
+
+fn installed_mask(dir: String, alias: String) ?String {
+    let dep = dependency_config(dir, alias) ?! return null
+    let mask = dep.get("version").string
+    return mask.is_empty() ? null : mask
+}
+
+// What the package offers to install: the builds it marked `"global": true`
+fn global_builds_of(pkg_dir: String) Array[Build] {
+    let result = Array[Build]{}
+    each builds_of(pkg_dir) as build {
+        if !build.global : continue
+        if !is_program_name(build.name) {
+            warn("Skipped a program with a name that is not a plain command: " + build.name)
+            continue
+        }
+        result.append(build)
+    }
+    return result
+}
+
+// A command is a plain name: nothing that could write somewhere else
+fn is_program_name(name: String) bool {
+    if name.is_empty() : return false
+    if name.contains("/") || name.contains("\\") || name.contains(":") : return false
+    if name == "." || name == ".." : return false
+    return true
+}
+
+fn build_program(dir: String, pkg_dir: String, program: Build) {
+    let bin_dir_path = fs.add(dir, "bin")
+    if !fs.is_dir(bin_dir_path) : fs.create_dir(bin_dir_path) ! error("Failed to create directory: " + bin_dir_path)
+
+    let source_dir = fs.add(pkg_dir, program.dir)
+    if !fs.is_dir(source_dir) : error("Program '" + program.name + "' points at a directory the package does not have: " + program.dir)
+
+    let out = fs.add(bin_dir_path, program_exe(program.name))
+    println("# Building: " + program.name)
+    let cmd = shell_quote(compiler_path()) + " build " + shell_quote(source_dir) + " -o " + shell_quote(out)
+    let args = program.args
+    if !args.is_empty() : cmd += " " + args
+    let code, output = core.exec(cmd)
+    if code != 0 {
+        print(output)
+        error("Failed to build '" + program.name + "'")
+    }
+}
+
+fn link_program(dir: String, program: String, into: String) {
+    let to = fs.add(fs.add(dir, "bin"), program_exe(program))
+    let link = link_path(program, into)
+    if !fs.exists(to) : error("Program '" + program + "' was not built: " + to)
+
+    if fs.exists(link) : fs.delete_file(link) ! error("Failed to replace: " + link)
+
+    #if OS == "win"
+    let content = "@echo off\n\"" + to + "\" \%*"
+    fs.write(link, content) ! error("Failed to write: " + link)
+    #else
+    fs.symlink(link, to, false) ! {
+        if E.code == E.access : error("Failed to link '" + link + "' | No permission")
+        error("Failed to link: " + link)
+    }
+    #end
+    println("# Linked: " + link)
+}
+
+fn link_path(program: String, into: String) String {
+    #if OS == "win"
+    return fs.add(into, program + ".bat")
+    #else
+    return fs.add(into, program)
+    #end
+}
+
+fn program_exe(program: String) String {
+    #if OS == "win"
+    return program + ".exe"
+    #else
+    return program
+    #end
+}
+
+fn compiler_path() String {
+    #if OS == "win"
+    return bin_dir() + "valk.bat"
+    #else
+    let path = bin_dir() + valk_exe()
+    if !fs.exists(path) : error("No valk version in use. Run 'vman use latest' first")
+    return path
+    #end
+}
+
+// The programs that were linked, kept so that removing the package removes them too
+fn remember_programs(dir: String, names: Array[String]) {
+    let path = fs.add(dir, "valk.json")
+    let str = fs.read(path) ! return
+    let config = json.decode(str) ! return
+    let list = json.new_array()
+    each names as name : list.append(json.new_string(name))
+    config = config.set("programs", list)
+    fs.write(path, config.encode(true)) ! warn("Failed to write: " + path)
+}
+
+fn remembered_programs(dir: String) Array[String] {
+    let result = Array[String]{}
+    let path = fs.add(dir, "valk.json")
+    let str = fs.read(path) ! return result
+    let config = json.decode(str) ! return result
+    each config.get("programs").array.values as value : result.append(value.string)
+    return result
+}
+
+fn warn_if_not_on_path() {
+    let dir = link_dir().rtrim(div())
+    let path = core.getenv("PATH") !? ""
+    if path.contains(dir) : return
+    warn("'" + dir + "' is not in your PATH, so the programs will not be found there")
+}

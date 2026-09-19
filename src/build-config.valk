@@ -1,0 +1,46 @@
+use valk.fs
+use valk.json
+
+// A package says what it makes in its valk.json, and marks what it offers to install:
+//
+//   "make": {
+//       "hello": { "dir": "src", "global": true },
+//       "test": "valk build ./tests --test --run"
+//   }
+//
+// `vman global install` builds the targets marked `global` and links them into
+// ~/.local/bin. A target that is a line to run is for the project itself, and so is a
+// build that is not marked.
+class Build {
+    name: String
+    dir: String
+    args: String ("")
+    // Whether `vman global install` offers this one as a program
+    global: bool (false)
+}
+
+fn builds_of(dir: String) Array[Build] {
+    let result = Array[Build]{}
+    let config = config_of(dir) ?! return result
+    let make = config.get("make")
+    each make.object.values.keys() as name {
+        let value = make.get(name)
+        // A target written as a line runs a command, which is not something to install
+        if value.kind == json.Kind.string : continue
+        let build_dir = value.get("dir").string
+        if build_dir.is_empty() : continue
+        result.append(Build {
+            name: name
+            dir: build_dir
+            args: value.get("args").string
+            global: value.get("global").bool_value() !? false
+        })
+    }
+    return result
+}
+
+fn config_of(dir: String) ?json.Value {
+    let path = fs.add(dir, "valk.json")
+    let str = fs.read(path) ! return null
+    return json.decode(str) ! return null
+}

@@ -1,6 +1,7 @@
 use vman
 use cli
 use valk.fs
+use valk.core
 
 @ignore_access
 
@@ -222,4 +223,112 @@ synctest "Templates: without a directory, a busy one gets a directory of its own
     assert(vman.target_dir_for(template, ".", false) == ".")
     // `--force` means here, and means it
     assert(vman.target_dir_for(template, null, true) == ".")
+}
+
+test "Builds: what a package says it offers" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let dir = fs.add(debug_dir, "build-config-test")
+    fs.delete_all(dir) _
+    fs.create_dir(dir) ! { assert(false) return }
+    defer fs.delete_all(dir) _
+
+    let config = "{ \"make\": {
+        \"hello\": { \"dir\": \"src\", \"global\": true },
+        \"dev\": { \"dir\": \"src\", \"args\": \"--def DEV=1\" },
+        \"a-line\": \"echo hello\",
+        \"no-dir\": { \"args\": \"--static\" },
+        \"a-command\": { \"cmd\": \"echo hello\" }
+    } }"
+    fs.write(fs.add(dir, "valk.json"), config) ! { assert(false) return }
+
+    let builds = vman.builds_of(dir)
+    // The two that name a directory; a line, a command and a target without one build nothing
+    assert(builds.length == 2)
+    let hello = builds.get(0) ! { assert(false) return }
+    assert(hello.name == "hello" && hello.dir == "src" && hello.global)
+    // A build is for the project itself unless it says otherwise
+    let dev = builds.get(1) ! { assert(false) return }
+    assert(dev.args == "--def DEV=1" && !dev.global)
+    // Only the ones marked global are offered as programs to install
+    let offered = vman.global_builds_of(dir)
+    assert(offered.length == 1 && (offered.get(0) ! { assert(false) return }).name == "hello")
+
+    // A package that says nothing offers nothing
+    fs.write(fs.add(dir, "valk.json"), "{}") ! { assert(false) return }
+    assert(vman.builds_of(dir).length == 0)
+    assert(vman.global_builds_of(dir).length == 0)
+}
+
+synctest "Global: a program is built and linked" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let root = fs.add(debug_dir, "global-install-test")
+    fs.delete_all(root) _
+    fs.create_dir(root) ! { assert(false) return }
+    defer fs.delete_all(root) _
+
+    // A package of one program
+    let pkg = fs.add(root, "pkg")
+    fs.create_dir(pkg) ! { assert(false) return }
+    fs.create_dir(fs.add(pkg, "src")) ! { assert(false) return }
+    fs.write(fs.add(pkg, "valk.json"), "{ \"make\": { \"greeter\": { \"dir\": \"src\", \"global\": true } } }") ! { assert(false) return }
+    fs.write(fs.add(pkg, "src/main.valk"), "fn main() { println(\"greetings\") }") ! { assert(false) return }
+
+    let program = vman.global_builds_of(pkg).get(0) ! { assert(false) return }
+    let holder = fs.add(root, "holder")
+    fs.create_dir(holder) ! { assert(false) return }
+    vman.build_program(holder, pkg, program)
+    assert(fs.exists(fs.add(holder, fs.add("bin", vman.program_exe("greeter")))))
+
+    // Linked where the programs go, and it runs from there
+    let links = fs.add(root, "bin")
+    fs.create_dir(links) ! { assert(false) return }
+    vman.link_program(holder, "greeter", links)
+    let link = vman.link_path("greeter", links)
+    assert(fs.exists(link))
+    let code, output = core.exec(vman.shell_quote(link))
+    assert(code == 0 && output.trim(" ").trim("\n") == "greetings")
+
+    // Linking again replaces the link instead of failing on it
+    vman.link_program(holder, "greeter", links)
+    assert(fs.exists(link))
+}
+
+synctest "Global: what an installed package is read back as" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let dir = fs.add(debug_dir, "global-read-test")
+    fs.delete_all(dir) _
+    fs.create_dir(dir) ! { assert(false) return }
+    defer fs.delete_all(dir) _
+
+    // The config an install leaves behind in the package's own little project
+    let config = "{ \"use\": \"0.7.3\", \"dependencies\": { \"tool\": {
+        \"src\": \"github.com/user/valk-tool\",
+        \"version\": \"0.2.x\",
+        \"current\": \"0.2.1\"
+    } } }"
+    fs.write(fs.add(dir, "valk.json"), config) ! { assert(false) return }
+
+    assert(vman.installed_version(dir, "tool") == "0.2.1")
+    assert((vman.installed_source(dir, "tool") ?? "") == "github.com/user/valk-tool")
+    assert((vman.installed_mask(dir, "tool") ?? "") == "0.2.x")
+    let pkg_dir = vman.installed_package_dir(dir, "tool") ?? ""
+    assert(pkg_dir == fs.add(dir, "vendor/github-user-valk-tool/0.2.1"))
+
+    // Nothing is known about a name that was never installed
+    assert(!isset(vman.installed_source(dir, "other")))
+    assert(vman.installed_version(dir, "other") == "?")
+
+    // The programs that were linked are remembered, so removing takes them away again
+    assert(vman.remembered_programs(dir).length == 0)
+    vman.remember_programs(dir, .{ "tool", "toold" })
+    assert(vman.remembered_programs(dir).join(",") == "tool,toold")
+    // And the rest of the config survives being written again
+    assert(vman.installed_version(dir, "tool") == "0.2.1")
+
+    // The name a package is installed under drops the prefix a repository carries
+    assert(vman.global_alias(vman.Source.new("github.com/user/valk-tool")) == "tool")
+    assert(vman.global_alias(vman.Source.new("github.com/user/my-tool")) == "my_tool")
 }

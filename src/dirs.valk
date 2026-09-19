@@ -40,6 +40,29 @@ fn templates_dir(create: bool (false)) String {
     return dir + div()
 }
 
+// Each globally installed package is a small project of its own in here, so it is installed
+// exactly like a package of any other project
+fn global_dir(create: bool (false)) String {
+    let dir = vman_dir() + "global"
+    if create && !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)
+    return dir + div()
+}
+
+// Where the programs of globally installed packages are linked. Windows has no symlinks to
+// hand out, so there the shims go next to valk, which the installer already put on PATH.
+fn link_dir(create: bool (false)) String {
+    #if OS == "win"
+    return bin_dir()
+    #else
+    let home = fs.home_dir() !? "~"
+    let local = home + div() + ".local"
+    if create && !fs.is_dir(local) : fs.create_dir(local) ! error("Failed to create directory: " + local)
+    let dir = local + div() + "bin"
+    if create && !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)
+    return dir + div()
+    #end
+}
+
 fn downloads_dir() String {
     let dir = vman_dir() + "downloads"
     if !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)

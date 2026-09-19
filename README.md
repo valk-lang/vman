@@ -30,6 +30,7 @@ Commands:
   versions     List the versions of a package, and the valk versions they need
   init         Write a valk.json for this project
   template     Write starting code into this project
+  global       Install the programs a package offers, for your user
   use          Install a valk version and make it the one in use
   unuse        Remove an installed valk version
   self-update  Update vman itself
@@ -130,6 +131,40 @@ there survives an update.
 
 The built-in templates live in `templates/` in this repository, in exactly the same
 layout.
+
+## Programs
+
+A package declares what it makes with `make` in its `valk.json`, and a build marked
+`"global": true` can be installed for your user rather than for a project:
+
+```
+vman global install github.com/user/valk-tool
+vman global                 # what is installed, and the commands it gave you
+vman global remove tool
+vman global update          # every one of them again, at the newest version it allows
+```
+
+Each package is installed in a small project of its own under `~/.vman/global`, built with
+the valk version in use, and its programs are linked into `~/.local/bin` (on Windows a shim
+goes next to `valk`, which the installer already put on PATH). `vman global remove` takes
+the links away with it.
+
+The name of the build is the command you type:
+
+```json
+{
+    "name": "tool",
+    "make": {
+        "tool": { "dir": "src", "global": true, "args": "--static" },
+        "dev": { "dir": "src", "args": "--def \"DEV=1\"" }
+    }
+}
+```
+
+`dir` is what gets compiled and `args` is passed to the compiler as it is. A target without
+`global`, and a target written as a line to run, is for the project itself, so a package
+that marks nothing cannot be installed this way. A name that is a path rather than a plain
+command is skipped.
 
 ## Compiler version requirements
 

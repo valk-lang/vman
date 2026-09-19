@@ -82,6 +82,49 @@ fn build_app() cli.App {
         return template_names()
     })
 
+    // Programs, installed for your user rather than for a project
+    let global_command = cli.Command.new("global", "Install the programs a package offers, for your user")
+    global_command.description = "A package says what it offers with `exe` in its valk.json. Its programs are built and linked into ~/.local/bin. Without a command, what is installed is listed."
+    global_command.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_global_list()
+        return 0
+    })
+
+    let global_install = cli.Command.new("install", "Install a package and link its programs")
+    global_install.argument("package", "A package such as github.com/user/repo", true)
+    global_install.argument("version", "The versions to allow, such as 0.2.x", false)
+    global_install.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_global_install(ctx.arg("package"), ctx.has_arg("version") ? ctx.arg("version") : null)
+        return 0
+    })
+
+    let global_remove = cli.Command.new("remove", "Remove a package and the programs it linked")
+    global_remove.argument("package", "The name it is installed under", true)
+    global_remove.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_global_remove(ctx.arg("package"))
+        return 0
+    })
+    global_remove.complete_argument("package", fn(words: Array[String]) Array[String] {
+        return global_package_names()
+    })
+
+    let global_update = cli.Command.new("update", "Install every one of them again, at the newest version it allows")
+    global_update.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_global_update()
+        return 0
+    })
+
+    let global_list = cli.Command.new("list", "List what is installed for your user")
+    global_list.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_global_list()
+        return 0
+    })
+
+    global_command.command(global_install)
+    global_command.command(global_remove)
+    global_command.command(global_update)
+    global_command.command(global_list)
+
     // Valk versions
     let use_command = cli.Command.new("use", "Install a valk version and make it the one in use")
     use_command.argument("version", "A version, `latest`, `dev`, or nothing for the one in valk.json", false)
@@ -143,6 +186,7 @@ fn build_app() cli.App {
     app.root.command(versions)
     app.root.command(init)
     app.root.command(template)
+    app.root.command(global_command)
     app.root.command(use_command)
     app.root.command(unuse)
     app.root.command(self_update_command)
