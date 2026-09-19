@@ -1,0 +1,8 @@
+fn main(args: Array[String]) {
+    let name = args.get(1) !? "world"
+    println(greeting(name))
+}
+
+fn greeting(name: String) String {
+    return "Hello, " + name + "!"
+}

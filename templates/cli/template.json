@@ -1,0 +1,9 @@
+{
+    "description": "A command line tool: options, arguments and shell completion",
+    "dependencies": {
+        "cli": {
+            "src": "github.com/ctxcode/valk-cli",
+            "version": "0.2.x"
+        }
+    }
+}

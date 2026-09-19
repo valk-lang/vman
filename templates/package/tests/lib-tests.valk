@@ -1,0 +1,5 @@
+use {{name}}
+
+test "It greets" {
+    assert({{name}}.greeting("valk") == "Hello, valk!")
+}

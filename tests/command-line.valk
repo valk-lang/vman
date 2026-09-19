@@ -1,5 +1,6 @@
 use vman
 use cli
+use valk.fs
 
 @ignore_access
 
@@ -68,4 +69,157 @@ test "CLI: what the shells are told to offer" {
     assert(app.completion_script(cli.Shell.bash).contains("complete -o default -F _vman_complete vman"))
     assert(app.completion_script(cli.Shell.zsh).starts_with("#compdef vman"))
     assert(app.completion_script(cli.Shell.fish).contains("complete -c vman"))
+}
+
+test "Templates: every template is loadable and describes itself" {
+    let templates = vman.Template.all()
+    assert(templates.length >= 4)
+
+    let names = Array[String]{}
+    each templates as template {
+        names.append(template.name)
+        // A template without a description would list as a bare name
+        assert(template.description.bytes > 0)
+        // And one without files would write nothing
+        assert(template.files.length > 0)
+    }
+    assert(names.contains("hello"))
+    assert(names.contains("package"))
+    // Listed in a fixed order, so the list does not shuffle between runs
+    assert(names.join(",") == names.sorted().join(","))
+
+    let package = vman.Template.get("package") ?! { assert(false) return }
+    assert(package.files.has("tests/valk.json"))
+    // The name of the project replaces the placeholder, in paths as well as in content
+    let rendered = package.rendered_files("greet")
+    let tests_config = rendered.get("tests/valk.json") !? ""
+    assert(tests_config.contains("\"greet\""))
+    assert(!tests_config.contains("{{name}}"))
+    let readme = rendered.get("README.md") !? ""
+    assert(readme.starts_with("# greet"))
+
+    assert(!isset(vman.Template.get("does-not-exist")))
+}
+
+test "Templates: a project name is taken from the directory" {
+    // A package repository is usually named valk-<something>, the package itself is not
+    assert(vman.project_name_of("/home/ctx/www/valk-toml") == "toml")
+    assert(vman.project_name_of("/tmp/my-tool") == "my_tool")
+    assert(vman.project_name_of("/tmp/Greeter") == "greeter")
+    // Nothing usable gives a name that still compiles
+    assert(vman.project_name_of("/tmp/123") == "project")
+    assert(vman.project_name_of("/tmp/...") == "project")
+}
+
+test "Templates: the command reads a name, a directory and a force flag" {
+    let app = vman.build_app()
+
+    let listing = app.parse(.{ "vman", "template" }) ! { assert(false) return }
+    assert(listing.command.name == "template")
+    assert(!listing.has_arg("name"))
+
+    let write = app.parse(.{ "vman", "template", "package", "libs/greet", "--force" }) ! { assert(false) return }
+    assert(write.arg("name") == "package")
+    assert(write.arg("directory") == "libs/greet")
+    assert(write.flag("force"))
+
+    // The shells offer the templates that exist
+    let offered = app.complete(.{ "vman", "template", "" })
+    assert(offered.contains("hello") && offered.contains("http-server"))
+}
+
+synctest "Templates: a directory of your own is read like the built-in ones" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let dir = fs.add(debug_dir, "templates-test")
+    fs.delete_all(dir) _
+    fs.create_dir(dir) ! { assert(false) return }
+    defer fs.delete_all(dir) _
+
+    // A directory with files is a template, named after the directory
+    let mine = fs.add(dir, "notes")
+    fs.create_dir(mine) ! { assert(false) return }
+    fs.create_dir(fs.add(mine, "src")) ! { assert(false) return }
+    fs.write(fs.add(mine, "src/main.valk"), "fn main() { println(\"{{name}}\") }") ! { assert(false) return }
+
+    let without_description = vman.templates_in_dir(dir)
+    assert(without_description.length == 1)
+    let found = without_description.get(0) ! { assert(false) return }
+    assert(found.name == "notes" && found.custom)
+    // Without a template.json it still lists, with a description that says what it is
+    assert(found.description.bytes > 0)
+    assert(found.files.has("src/main.valk"))
+
+    fs.write(fs.add(mine, "template.json"), "{ \"description\": \"My notes tool\" }") ! { assert(false) return }
+    let described = vman.templates_in_dir(dir).get(0) ! { assert(false) return }
+    assert(described.description == "My notes tool")
+    // template.json is what the template says about itself, not a file it writes
+    assert(!described.files.has("template.json"))
+
+    // An empty directory is not a template
+    fs.create_dir(fs.add(dir, "empty")) ! { assert(false) return }
+    assert(vman.templates_in_dir(dir).length == 1)
+
+    // And a directory that does not exist is no templates at all
+    assert(vman.templates_in_dir(fs.add(dir, "missing")).length == 0)
+}
+
+synctest "Templates: the directory a template is written into" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let dir = fs.add(debug_dir, "template-target-test")
+    fs.delete_all(dir) _
+    fs.create_dir(dir) ! { assert(false) return }
+    defer fs.delete_all(dir) _
+
+    // An empty directory is where a template belongs
+    assert(vman.entries_in_the_way(dir).length == 0)
+
+    // What vman and a repository put there themselves is not work of the project
+    fs.write(fs.add(dir, "valk.json"), "{}") ! { assert(false) return }
+    fs.write(fs.add(dir, ".gitignore"), "vendor") ! { assert(false) return }
+    fs.create_dir(fs.add(dir, "vendor")) ! { assert(false) return }
+    fs.create_dir(fs.add(dir, ".git")) ! { assert(false) return }
+    assert(vman.entries_in_the_way(dir).length == 0)
+
+    // Anything else is, and is named so it can be looked at
+    fs.create_dir(fs.add(dir, "src")) ! { assert(false) return }
+    fs.write(fs.add(dir, "README.md"), "# project") ! { assert(false) return }
+    let found = vman.entries_in_the_way(dir)
+    assert(found.join(",") == "README.md,src")
+
+    // A directory that is not there yet is made, parents and all
+    let deep = fs.add(dir, "apps/one/two")
+    vman.create_dirs(deep)
+    assert(fs.is_dir(deep))
+}
+
+synctest "Templates: without a directory, a busy one gets a directory of its own" {
+    let debug_dir = fs.add((fs.cwd() !? "."), "debug")
+    if !fs.is_dir(debug_dir) : fs.create_dir(debug_dir) ! { assert(false) return }
+    let dir = fs.add(debug_dir, "template-default-dir-test")
+    fs.delete_all(dir) _
+    fs.create_dir(dir) ! { assert(false) return }
+    defer fs.delete_all(dir) _
+
+    let template = vman.Template.get("hello") ?! { assert(false) return }
+    let started_in = fs.cwd() !? "."
+    fs.chdir(dir) ! { assert(false) return }
+    defer fs.chdir(started_in) _
+
+    // Nothing here yet, so the template starts this directory
+    assert(vman.target_dir_for(template, null, false) == ".")
+
+    // A directory that was asked for is used whatever is here
+    assert(vman.target_dir_for(template, "apps/one", false) == "apps/one")
+    assert(vman.target_dir_for(template, "apps/one/", false) == "apps/one")
+
+    fs.create_dir(fs.add(dir, "src")) ! { assert(false) return }
+
+    // Now there is work here, so the template gets a directory named after itself
+    assert(vman.target_dir_for(template, null, false) == "hello")
+    // Unless this directory is what was asked for
+    assert(vman.target_dir_for(template, ".", false) == ".")
+    // `--force` means here, and means it
+    assert(vman.target_dir_for(template, null, true) == ".")
 }

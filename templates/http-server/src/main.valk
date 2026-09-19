@@ -1,0 +1,32 @@
+use valk.http
+
+// Each route hands the handler the request and the `@name` parts of the path
+global router: http.Router[fn(http.Request, Map[String])(http.Response)] (build_router())
+
+fn build_router() http.Router[fn(http.Request, Map[String])(http.Response)] {
+    let r = http.Router[fn(http.Request, Map[String])(http.Response)].new()
+    r.add("GET", "/", home)
+    r.add("GET", "/hello/@name", hello)
+    return r
+}
+
+fn home(req: http.Request, params: Map[String]) http.Response {
+    return http.Response.json_of(Map[String]{ "service" => "{{name}}", "status" => "ok" })
+}
+
+fn hello(req: http.Request, params: Map[String]) http.Response {
+    return http.Response.text("Hello " + (params.get("name") !? "world") + "!")
+}
+
+fn handler(req: http.Request) http.Response {
+    let route = router.find(req.method, req.path) ! return http.Response.text("Not found", 404)
+    return route.handler(req, route.params(req.path))
+}
+
+fn main() {
+    let server = http.Server.new("127.0.0.1", 8080, handler)
+    server.show_info = true
+    // Ctrl-C lets the requests that are running finish
+    server.stop_on_signal = true
+    server.start() ! panic("Failed to start the server")
+}

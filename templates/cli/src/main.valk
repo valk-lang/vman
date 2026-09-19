@@ -1,0 +1,28 @@
+use cli
+
+fn main(args: Array[String]) {
+    exit(build_app().run(args))
+}
+
+fn build_app() cli.App {
+    let app = cli.App.new("{{name}}", "What this tool does", "0.1.0")
+
+    let greet = cli.Command.new("greet", "Greet someone")
+    greet.argument("name", "Who to greet", true)
+    greet.option("times", "n", "How often to greet", "1")
+    greet.flag("loud", "l", "Greet in capitals")
+    greet.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        let times = ctx.int("times", 1) !>
+        let i: int = 0
+        while i++ < times {
+            let line = "Hello " + ctx.arg("name") + "!"
+            println(ctx.flag("loud") ? line.upper() : line)
+        }
+        return 0
+    })
+
+    app.root.command(greet)
+    // `{{name}} completion bash` prints the script that completes this tool
+    app.add_completion_command()
+    return app
+}

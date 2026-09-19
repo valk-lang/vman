@@ -32,6 +32,14 @@ fn vman_dir() String {
     return dir + div()
 }
 
+// Templates of your own, which self-update never touches: the built-in ones live in the
+// binary, so an update unpacks nothing over this directory
+fn templates_dir(create: bool (false)) String {
+    let dir = vman_dir() + "templates"
+    if create && !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)
+    return dir + div()
+}
+
 fn downloads_dir() String {
     let dir = vman_dir() + "downloads"
     if !fs.is_dir(dir) : fs.create_dir(dir) ! error("Failed to create directory: " + dir)

@@ -1,0 +1,7 @@
+/// Returns a greeting for `name`.
+///
+/// Declarations marked `+` are the ones another package can use; everything else stays
+/// inside this one.
++ fn greeting(name: String) String {
+    return "Hello, " + name + "!"
+}

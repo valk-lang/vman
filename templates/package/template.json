@@ -1,0 +1,6 @@
+{
+    "description": "A package to publish: source, tests, a Makefile and a readme",
+    "config": {
+        "name": "{{name}}"
+    }
+}

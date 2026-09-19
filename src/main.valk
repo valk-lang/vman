@@ -60,6 +60,28 @@ fn build_app() cli.App {
         return 0
     })
 
+    let template = cli.Command.new("template", "Write starting code into this project")
+    template.description = "Without a name, every template is listed. The files are written into `directory`, which is the project itself by default and has to be empty; a template that needs a package installs it."
+    template.argument("name", "The template to write; left out, the templates are listed", false)
+    template.argument("directory", "An empty directory to write the files in, made when it is not there; this one when it is empty, ./{template} otherwise", false)
+    template.flag("force", "f", "Write over files that are already there")
+    template.flag("export", "e", "Copy the template into your own templates directory, to edit it")
+    template.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        if !ctx.has_arg("name") {
+            cmd_template_list()
+            return 0
+        }
+        if ctx.flag("export") {
+            cmd_template_export(ctx.arg("name"), ctx.flag("force"))
+            return 0
+        }
+        cmd_template_write(ctx.arg("name"), ctx.has_arg("directory") ? ctx.arg("directory") : null, ctx.flag("force"))
+        return 0
+    })
+    template.complete_argument("name", fn(words: Array[String]) Array[String] {
+        return template_names()
+    })
+
     // Valk versions
     let use_command = cli.Command.new("use", "Install a valk version and make it the one in use")
     use_command.argument("version", "A version, `latest`, `dev`, or nothing for the one in valk.json", false)
@@ -120,6 +142,7 @@ fn build_app() cli.App {
     app.root.command(remove)
     app.root.command(versions)
     app.root.command(init)
+    app.root.command(template)
     app.root.command(use_command)
     app.root.command(unuse)
     app.root.command(self_update_command)

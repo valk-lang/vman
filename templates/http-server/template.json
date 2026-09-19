@@ -1,0 +1,3 @@
+{
+    "description": "An HTTP server with a router, JSON replies and a clean shutdown"
+}
