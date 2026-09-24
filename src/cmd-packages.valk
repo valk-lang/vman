@@ -27,11 +27,13 @@ fn cmd_package_install(install_pkg_name: ?String, install_mask: ?String, alias: 
         else : println("# Package installed: " + pkg.id)
         let require = pkg.require
         if isset(require) && !require.is_any() : println("# Requires valk: " + require.str())
+        p.warn_active_valk()
         return
     }
 
     // Install all
     p.install_packages()
+    p.warn_active_valk()
 }
 
 fn cmd_package_update() {
@@ -58,6 +60,7 @@ fn cmd_package_update() {
     // config as it was
     p.config = p.config.set("dependencies", deps)
     p.install_packages()
+    p.warn_active_valk()
 }
 
 fn cmd_package_remove(name: String) {

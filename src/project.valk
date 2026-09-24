@@ -49,6 +49,12 @@ class Project {
         return Version.new(value) ! error("Invalid 'use' version in valk.json: " + value)
     }
 
+    // A project that asks for a newer valk than the one in use gets a hint to switch
+    fn warn_active_valk() {
+        let message = active_valk_warning(this.config.get("use").string, current_used_version()) ?! return
+        warn(message)
+    }
+
     // Stops at dependencies whose valk requirement does not include `valk`; with
     // --ignore-min, or `warn_only`, they are only warned about
     fn check_dep_requirements(valk: Version, warn_only: bool (false)) {
@@ -393,6 +399,14 @@ fn remove_empty_dirs(dir: String, protected: Array[String]) {
             fs.delete_dir(sub) _
         }
     }
+}
+
+// The warning when the valk in use is older than the `use` version of the project
+fn active_valk_warning(use: String, active: ?Version) ?String {
+    if use.is_empty() || !isset(active) : return null
+    let wanted = Version.new(use) ! return null
+    if active < wanted : return "The project uses valk " + wanted.name + ", but valk " + active.name + " is active: run 'vman use' to switch"
+    return null
 }
 
 fn resolve_dep_pkg(project: Project, name: String, installed: ?Version, hash: String, mask: String) Package {

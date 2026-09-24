@@ -196,7 +196,9 @@ vman install github.com/user/repo --ignore-min
 ```
 
 `vman use {version}` switches in any case, and warns when the project's
-dependencies need a newer valk.
+dependencies need a newer valk. `vman install` and `vman update` also warn when the
+valk in use is older than the project's `use` version, because a build would use that
+older one; `vman use` in the project switches to the right one.
 
 The compiler only warns: a build with an older valk than a package asks for still
 runs, and shows the requirement next to the error when it fails.

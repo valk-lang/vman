@@ -197,3 +197,13 @@ synctest "Project: a version that does not fit the mask is not reused" {
 
     fs.delete_all(root) _
 }
+
+test "Project: a warning when the valk in use is older than the project's" {
+    let message = vman.active_valk_warning("0.7.7", must_version("0.7.6")) ?! { assert(false) return }
+    assert(message.contains("uses valk 0.7.7") && message.contains("valk 0.7.6 is active") && message.contains("vman use"))
+    assert(!isset(vman.active_valk_warning("0.7.7", must_version("0.7.7"))))
+    assert(!isset(vman.active_valk_warning("0.7.6", must_version("0.7.7"))))
+    assert(!isset(vman.active_valk_warning("", must_version("0.7.6"))))
+    assert(!isset(vman.active_valk_warning("0.7.7", null)))
+    assert(!isset(vman.active_valk_warning("latest", must_version("0.7.6"))))
+}
