@@ -1,4 +1,5 @@
 use cli
+use valk.core
 use valk.ansi
 use valk.fs
 
@@ -7,6 +8,8 @@ fn emo(emo: String, alt: String) String {
 }
 
 fn main(args: Array[String]) {
+    // git asks for a password when a repository does not exist; vman must not wait on it
+    core.setenv("GIT_TERMINAL_PROMPT", "0") _
     exit(build_app().run(args))
 }
 

@@ -1,0 +1,18 @@
+use vman
+
+@ignore_access
+
+test "Tags: versions and their commits from git ls-remote" {
+    let output = "aaaa\trefs/tags/0.1.0\nbbbb\trefs/tags/0.2.0\ncccc\trefs/tags/0.2.0^{}\ndddd\trefs/tags/latest\r\neeee\trefs/tags/v0.3.1\r\n\n"
+    let versions = vman.versions_from_ls_remote(output)
+    assert(versions.length == 3)
+    assert(versions[0] == must_version("0.1.0") && versions[0].hash == "aaaa")
+    // An annotated tag names the commit it points at
+    assert(versions[1] == must_version("0.2.0") && versions[1].hash == "cccc")
+    assert(versions[2] == must_version("0.3.1") && versions[2].hash == "eeee")
+}
+
+test "Tags: nothing tagged" {
+    assert(vman.versions_from_ls_remote("").length == 0)
+    assert(vman.versions_from_ls_remote("ffff\tHEAD\n").length == 0)
+}

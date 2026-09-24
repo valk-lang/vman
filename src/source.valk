@@ -1,7 +1,38 @@
 
 use valk.json
+use valk.core
 
 error SourceError (none)
+
+// The versions in `git ls-remote --tags` output: `<hash>\trefs/tags/<name>` per tag, and for
+// an annotated tag also `<hash>\trefs/tags/<name>^{}`, the commit it points at, which wins.
+// Tags that are not a version are left out.
+fn versions_from_ls_remote(output: String) Array[Version] {
+    let commits = Map[String]{}
+    let names = Array[String]{}
+    each output.split("\n") as line {
+        let fields = line.rtrim("\r").split("\t")
+        if fields.length != 2 : continue
+        let hash = fields[0]
+        let ref = fields[1]
+        if !ref.starts_with("refs/tags/") : continue
+        let name = ref.range("refs/tags/".length, ref.length - "refs/tags/".length)
+        if name.ends_with("^{}") {
+            commits.set(name.range(0, name.length - 3), hash)
+            continue
+        }
+        if commits.has(name) : continue
+        commits.set(name, hash)
+        names.append(name)
+    }
+    let versions = Array[Version]{}
+    each names as name {
+        let v = Version.new(name) ! continue
+        v.hash = commits.get(name) ! continue
+        versions.append(v)
+    }
+    return versions
+}
 
 enum SRC {
     github
@@ -22,7 +53,6 @@ class Source {
         let split = project.split("/")
         let user = split.get(0) ! error("Missing user name")
         let repo = split.get(1) ! error("Missing repo name")
-        // if !github_exists(user, repo) : error("Github repository does not exist")
         return SELF {
             type: SRC.github
             name: name.replace("/", ".")
@@ -48,41 +78,18 @@ class Source {
         return "https://github.com/%{this.user_name}/%{this.repo_name}.git"
     }
 
+    // The tagged versions, read with `git ls-remote`: always current, and not subject to the
+    // rate limit of GitHub's API
     fn get_versions() Array[Version] {
         let vv = this.versions
         if isset(vv) : return vv
-        // Check cache
-        // let cache = Cache.get()
-        // let cache_vv = cache.get_versions(this.name) !? null
-        // if isset(cache_vv) : return cache_vv
-        // 
-        let versions = Array[Version]{}
-        let data: json.Value = json.new_array()
-        if this.type == SRC.github {
-            data = github_req("GET", "/repos/" + this.user_name + "/" + this.repo_name + "/tags") ! {
-                error("Package not found: " + this.name)
-            }
-        }
-        let tags = data.array.values
-        each tags as tag {
-
-            let name = tag.get("name").string
-            let v = Version.new(name) ! continue
-            let hash = tag.get("commit").get("sha").string
-            if hash.is_empty() {
-                warn("Missing version commit hash for version: " + name)
-                continue
-            }
-            v.hash = hash
-            versions.append(v)
-        }
-        this.versions = versions
-
-        // cache.set_versions(this.name, versions)
-        // versions.sort(fn(v1: Version, v2: Version) bool {
-        //     return v1 < v2
-        // })
+        let cmd = "git ls-remote --tags " + shell_quote(this.clone_url())
+        let code, output = core.exec(cmd)
+        if code == 127 : error("Git is not installed")
+        if code != 0 : error("Package not found, or GitHub could not be reached: github.com/%{this.user_name}/%{this.repo_name}")
+        let versions = versions_from_ls_remote(output)
         versions.sort()
+        this.versions = versions
         return versions
     }
 
