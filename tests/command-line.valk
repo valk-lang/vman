@@ -32,6 +32,12 @@ test "CLI: the command line is read into commands and arguments" {
     let bare = app.parse(.{ "vman", "install" }) ! { assert(false) return }
     assert(!bare.has_arg("package"))
 
+    // --ignore-min goes ahead when a package needs a newer valk
+    each Array[Array[String]]{ .{ "vman", "install", "--ignore-min" }, .{ "vman", "update", "--ignore-min" }, .{ "vman", "global", "install", "github.com/user/repo", "--ignore-min" }, .{ "vman", "global", "update", "--ignore-min" } } as line {
+        let parsed = app.parse(line) ! { assert(false) return }
+        assert(parsed.flag("ignore-min"))
+    }
+
     // The ones that need an argument say so instead of doing nothing
     app.parse(.{ "vman", "remove" }) ! {
         assert(error_is(E.code, missing_argument))

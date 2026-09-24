@@ -183,10 +183,23 @@ package without a `require` block supports every version.
 ```
 
 `vman install {pkg}` reads this from every tagged version and installs the
-highest one matching the version mask that supports the `use` version of the
-project. `vman versions {pkg}` lists every tagged version with its requirement, and
-`vman use` / `vman install` warn when an installed dependency does not support
-the project's valk version.
+highest one matching the version mask that supports the valk version of the
+project: its `use`, or the version in use when it has none. `vman versions {pkg}`
+lists every tagged version with its requirement.
+
+A package that needs a newer valk is an error: `vman install` and `vman update`
+stop when no version of it fits, or when an installed dependency does not.
+`--ignore-min` goes ahead with a warning instead:
+
+```
+vman install github.com/user/repo --ignore-min
+```
+
+`vman use {version}` switches in any case, and warns when the project's
+dependencies need a newer valk.
+
+The compiler only warns: a build with an older valk than a package asks for still
+runs, and shows the requirement next to the error when it fails.
 
 ## Testing
 

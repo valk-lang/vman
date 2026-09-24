@@ -34,7 +34,7 @@ fn cmd_use(requested: ?String) {
     else : println("# Switched to version: " + version.name)
 
     // Warn when project dependencies do not support this version
-    if fs.exists(Project.get_config_path()) : Project.load().check_dep_requirements(version)
+    if fs.exists(Project.get_config_path()) : Project.load().check_dep_requirements(version, true)
 }
 
 fn is_installed(version: Version) bool {

@@ -20,7 +20,9 @@ fn build_app() cli.App {
     install.argument("package", "A package such as github.com/user/repo; left out, every dependency of the project", false)
     install.argument("version", "The versions to allow, such as 0.2.x", false)
     install.argument("alias", "The name to use the package under", false)
+    install.flag("ignore-min", "", "Install packages that need a newer valk than the project uses, with a warning")
     install.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        ignore_min = ctx.flag("ignore-min")
         cmd_package_install(ctx.has_arg("package") ? ctx.arg("package") : null, ctx.has_arg("version") ? ctx.arg("version") : null, ctx.has_arg("alias") ? ctx.arg("alias") : null)
         return 0
     })
@@ -29,7 +31,9 @@ fn build_app() cli.App {
     })
 
     let update = cli.Command.new("update", "Update the packages to the newest versions they allow")
+    update.flag("ignore-min", "", "Update to versions that need a newer valk than the project uses, with a warning")
     update.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        ignore_min = ctx.flag("ignore-min")
         cmd_package_update()
         return 0
     })
@@ -93,7 +97,9 @@ fn build_app() cli.App {
     let global_install = cli.Command.new("install", "Install a package and link its programs")
     global_install.argument("package", "A package such as github.com/user/repo", true)
     global_install.argument("version", "The versions to allow, such as 0.2.x", false)
+    global_install.flag("ignore-min", "", "Install it even when it needs a newer valk than the one in use, with a warning")
     global_install.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        ignore_min = ctx.flag("ignore-min")
         cmd_global_install(ctx.arg("package"), ctx.has_arg("version") ? ctx.arg("version") : null)
         return 0
     })
@@ -109,7 +115,9 @@ fn build_app() cli.App {
     })
 
     let global_update = cli.Command.new("update", "Install every one of them again, at the newest version it allows")
+    global_update.flag("ignore-min", "", "Update to versions that need a newer valk than the one in use, with a warning")
     global_update.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        ignore_min = ctx.flag("ignore-min")
         cmd_global_update()
         return 0
     })

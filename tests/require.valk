@@ -101,3 +101,15 @@ test "Require: reports incompatible versions" {
     }
     assert(false)
 }
+
+test "Require: --ignore-min picks the newest matching version when none supports the valk" {
+    let versions = Array[vman.Version] {
+        must_version("1.2.0"), must_version("2.0.0"), must_version("1.0.0"), must_version("1.1.0")
+    }
+    vman.ignore_min = true
+    // A version that supports the valk is still preferred
+    assert(vman.pick_version("pkg", versions, must_mask("x.x.x"), must_version("0.7.0"), require_lookup) == must_version("1.2.0"))
+    // None of 2.x does: the newest 2.x, with a warning instead of an error
+    assert(vman.pick_version("pkg", versions, must_mask("2.x.x"), must_version("0.7.0"), require_lookup) == must_version("2.0.0"))
+    vman.ignore_min = false
+}

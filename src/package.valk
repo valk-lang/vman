@@ -33,19 +33,10 @@ class Package {
 
         // The valk version of the project decides which package versions qualify
         let valk = project.valk_version()
-        let valk_name = ""
-        if isset(valk) {
-            valk_name = valk.name
-            ensure_repo(src, repo_dir)
-        }
+        if isset(valk) : ensure_repo(src, repo_dir)
 
         // Resolve the latest tagged version that matches the requested mask and supports the project valk version
-        let ver = select_version(versions, mask, valk, require_of) ! {
-            if E.code == E.none : error("Package '%name' has no versions matching: " + mask.name)
-            println("# Versions of '%name' matching '" + mask.name + "' (project uses valk " + valk_name + ")")
-            print_version_table(versions.filter(fn(v: Version) bool { return mask.is_compat(v) }), valk, require_of)
-            error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk_name)
-        }
+        let ver = pick_version(name, versions, mask, valk, require_of)
 
         let pkg_dir = fs.add(project.vendor_dir, src.assoc_name())
         let ver_dir = fs.add(pkg_dir, ver.name)

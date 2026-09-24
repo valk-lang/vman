@@ -4,6 +4,12 @@ use valk.core
 
 error SelectError (none, incompatible)
 
+value IGNORE_MIN_HINT ("pass --ignore-min to go ahead anyway")
+
+// Set by --ignore-min: a package that needs a newer valk is installed with a warning
+// instead of an error
+global ignore_min : bool (false)
+
 // The lowest valk compiler version a package declares in its valk.json:
 // { "require": { "valk": { "min": "0.7.0" } } }
 class ValkRequire {
@@ -65,6 +71,20 @@ fn select_version(versions: Array[Version], mask: ?Mask, valk: ?Version, require
         if require_of(v).is_compat(valk) : return v
     }
     throw .incompatible
+}
+
+// The newest version matching `mask` that supports `valk`. When none does, that is an error,
+// or with --ignore-min a warning and the newest version matching `mask`.
+fn pick_version(name: String, versions: Array[Version], mask: Mask, valk: ?Version, require_of: fn(Version)(ValkRequire)) Version {
+    return select_version(versions, mask, valk, require_of) ! {
+        if E.code == E.none || !isset(valk) : error("Package '%name' has no versions matching: " + mask.name)
+        println("# Versions of '%name' matching '" + mask.name + "' (project uses valk " + valk.name + ")")
+        print_version_table(versions.filter(fn(v: Version) bool { return mask.is_compat(v) }), valk, require_of)
+        if !ignore_min : error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk.name + "; " + IGNORE_MIN_HINT)
+        let newest = select_version(versions, mask, null, require_of) ! error("Package '%name' has no versions matching: " + mask.name)
+        warn("Package '%name' " + newest.name + " requires valk " + require_of(newest).str() + ", the project uses " + valk.name)
+        return newest
+    }
 }
 
 fn print_version_table(versions: Array[Version], valk: ?Version, require_of: fn(Version)(ValkRequire)) {
