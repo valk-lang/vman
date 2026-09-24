@@ -125,7 +125,7 @@ fn cmd_template_list() {
     let templates = Template.all()
     println("# Templates")
     each templates as template {
-        let name = ansi.supported() ? template.name.ansi.cyan() : template.name
+        let name = use_color() ? template.name.ansi.cyan() : template.name
         let mark = template.custom ? " *" : ""
         println("  " + name + pad_to(template.name, 14) + template.description + mark)
     }
@@ -223,7 +223,7 @@ fn cmd_template_write(name: String, dir: ?String, force: bool) {
     if target != "." : fs.chdir(started_in) ! error("Failed to return to directory: " + started_in)
 
     println("")
-    if ansi.supported() : println("# Template written: " + name.ansi.green())
+    if use_color() : println("# Template written: " + name.ansi.green())
     else : println("# Template written: " + name)
 }
 

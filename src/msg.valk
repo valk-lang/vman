@@ -1,5 +1,6 @@
 
 use valk.ansi
+use valk.core
 
 fn error(msg: String) $exit {
     if ansi.supported() : println("❌ " + msg)
@@ -14,6 +15,22 @@ fn warn(msg: String) {
 
 
 fn msg_uptodate() {
-    if ansi.supported() : println("# vman is " + "up-to-date".ansi.green())
+    if use_color() : println("# vman is " + "up-to-date".ansi.green())
     else : println("# vman is " + "up-to-date")
+}
+#if OS == "win"
+extern fn _isatty(fd: i32) i32;
+#else
+extern fn isatty(fd: i32) i32;
+#end
+
+// Colors only for a terminal, and never when NO_COLOR is set
+fn use_color() bool {
+    let no_color = core.getenv("NO_COLOR") !? ""
+    if !no_color.is_empty() || !ansi.supported() : return false
+    #if OS == "win"
+    return _isatty(1) != 0
+    #else
+    return isatty(1) != 0
+    #end
 }

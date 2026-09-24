@@ -1,0 +1,11 @@
+use vman
+use valk.core
+
+@ignore_access
+
+test "Colors are off when NO_COLOR is set" {
+    let previous = core.getenv("NO_COLOR") !? ""
+    core.setenv("NO_COLOR", "1") !!
+    assert(!vman.use_color())
+    core.setenv("NO_COLOR", previous) !!
+}

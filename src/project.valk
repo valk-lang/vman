@@ -27,7 +27,7 @@ class Project {
         let dir = (fs.cwd() ! error("Failed to get current directory"))
         let vendor_dir = fs.add(dir, "vendor")
         let config_path = SELF.get_config_path()
-        if !fs.exists(config_path) : error("No 'valk.json' config not found: " + config_path)
+        if !fs.exists(config_path) : error("No 'valk.json' found: " + config_path)
 
         let str = fs.read(config_path) !? "{}"
         let data = json.decode(str) ! error("Invalid json syntax in '%config_path'")

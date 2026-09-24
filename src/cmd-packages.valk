@@ -23,7 +23,7 @@ fn cmd_package_install(install_pkg_name: ?String, install_mask: ?String, alias: 
         p.add_pkg_to_config(pkg, alias)
 
         // Success
-        if ansi.supported() : println("# Package installed: " + pkg.id.to(String).ansi.green())
+        if use_color() : println("# Package installed: " + pkg.id.to(String).ansi.green())
         else : println("# Package installed: " + pkg.id)
         let require = pkg.require
         if isset(require) && !require.is_any() : println("# Requires valk: " + require.str())
@@ -48,10 +48,12 @@ fn cmd_package_update() {
     }
 
     // Remove the pinned version so install re-resolves the latest matching the "version" mask
+    let before = Map[String]{}
     each deps.values.keys() as key {
         let dep = deps.get(key) ! {
             continue
         }
+        before.set(key, dep.get("current").string)
         dep = dep.remove("current").remove("current_hash")
         deps.set(key, dep)
     }
@@ -60,6 +62,18 @@ fn cmd_package_update() {
     // config as it was
     p.config = p.config.set("dependencies", deps)
     p.install_packages()
+
+    let after = p.config.get("dependencies").object
+    let changed = 0
+    each after.values.keys() as key {
+        let dep = after.get(key) ! continue
+        let now = dep.get("current").string
+        let was = before.get(key) !? ""
+        if now.is_empty() || now == was : continue
+        println("# Updated %key: " + (was.is_empty() ? "new" : was) + " -> " + now)
+        changed++
+    }
+    if changed == 0 : println("# Every package is at the newest version it allows")
     p.warn_active_valk()
 }
 
@@ -69,13 +83,11 @@ fn cmd_package_remove(name: String) {
     let p = Project.new()
 
     let deps = p.config.get("dependencies")
-    if !deps.has(name) {
-        warn("Your project has no dependency called '%name'")
-        return
-    }
+    if !deps.has(name) : error("Your project has no dependency called '%name'")
 
     deps.remove(name)
     fs.write(p.config_path, p.config.encode(true)) ! error("Failed to save file: " + p.config_path)
+    println("# Removed '%name'")
 }
 
 fn cmd_package_versions(name: String) {

@@ -30,7 +30,7 @@ fn cmd_use(requested: ?String) {
     // Link
     link_version(version)
     //
-    if ansi.supported() : println("# Switched to version: " + version.name.ansi.green())
+    if use_color() : println("# Switched to version: " + version.name.ansi.green())
     else : println("# Switched to version: " + version.name)
 
     // Warn when project dependencies do not support this version
@@ -74,6 +74,6 @@ fn link_version(version: Version) {
     #end
 
     // Message
-    if ansi.supported() : println("# Link '" + link.ansi.blue() + "' to '" + to.ansi.blue() + "'")
+    if use_color() : println("# Link '" + link.ansi.blue() + "' to '" + to.ansi.blue() + "'")
     else : println("# Link '" + link + "' to '" + to + "'")
 }

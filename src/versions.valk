@@ -79,7 +79,7 @@ fn vman_is_up_to_date(vv: Versions) bool {
 
 fn check_vman_versions(vv: Versions) {
     if vman_is_up_to_date(vv) {
-        if ansi.supported() : println("# vman is " + "up-to-date".ansi.green())
+        if use_color() : println("# vman is " + "up-to-date".ansi.green())
         else : println("# vman is " + "up-to-date")
     } else {
         println("# There is a new vman version available: " + vv.vman_latest.name)

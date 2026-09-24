@@ -39,7 +39,7 @@ fn cmd_global_install(name: String, mask: ?String) {
     remember_programs(dir, names)
 
     println("")
-    if ansi.supported() : println("# Installed: " + names.join(", ").ansi.green() + " (" + link_dir() + ")")
+    if use_color() : println("# Installed: " + names.join(", ").ansi.green() + " (" + link_dir() + ")")
     else : println("# Installed: " + names.join(", ") + " (" + link_dir() + ")")
     warn_if_not_on_path()
 }
@@ -71,7 +71,7 @@ fn cmd_global_list() {
         let pkg_dir = fs.add(dir, name)
         let version = installed_version(pkg_dir, name)
         let programs = remembered_programs(pkg_dir).join(", ")
-        let shown = ansi.supported() ? name.ansi.cyan() : name
+        let shown = use_color() ? name.ansi.cyan() : name
         println("  " + shown + pad_to(name, 16) + version + "  " + programs)
     }
     println("")
