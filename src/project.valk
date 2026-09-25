@@ -160,10 +160,11 @@ class Project {
         dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
 
         let mask = pkg.mask
-        if isset(mask) {
+        if isset(mask) && pkg.mask_given {
             dep = dep.set("version", json.new_string(mask.name))
         } else {
-            dep = dep.set("version", json.new_string("x.x.x"))
+            // `vman update` then stays within versions that should not break the project
+            dep = dep.set("version", json.new_string(Mask.compatible_with(pkg.ver).name))
         }
 
         deps = deps.set(name, dep)
@@ -208,14 +209,7 @@ class Project {
             dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
             // Every registry dependency has a mask; missing masks default to all versions
             let ver_mask = dep.get("version").string
-            if ver_mask.is_empty() {
-                let m = pkg.mask
-                if isset(m) {
-                    dep = dep.set("version", json.new_string(m.name))
-                } else {
-                    dep = dep.set("version", json.new_string("x.x.x"))
-                }
-            }
+            if ver_mask.is_empty() : dep = dep.set("version", json.new_string(Mask.compatible_with(pkg.ver).name))
             deps.set(key, dep)
 
             // Install if the package-dir is missing

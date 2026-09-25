@@ -49,6 +49,7 @@ synctest "Project: persists dependency configuration" {
         src: source
         ver: must_version("1.2.3")
         mask: must_mask("1.2.x")
+        mask_given: true
     }
     pkg.ver.hash = "0123456789abcdef0123456789abcdef01234567"
 
@@ -69,12 +70,14 @@ synctest "Project: persists dependency configuration" {
     pkg.ver = must_version("1.2.4")
     pkg.ver.hash = "abcdef0123456789abcdef0123456789abcdef0"
     pkg.mask = null
+    pkg.mask_given = false
     project.add_pkg_to_config(pkg, "example")
 
+    // Without a mask from the user the config keeps updates within the major version
     let updated = project.config.get("dependencies").get("example")
     assert(updated.get("current").string == "1.2.4")
     assert(updated.get("current_hash").string == "abcdef0123456789abcdef0123456789abcdef0")
-    assert(updated.get("version").string == "x.x.x")
+    assert(updated.get("version").string == "1.x.x")
 }
 
 synctest "Project: supplies the default mask for pinned dependencies" {
@@ -112,7 +115,8 @@ synctest "Project: supplies the default mask for pinned dependencies" {
     project.install_packages()
 
     let installed = project.config.get("dependencies").get("example")
-    assert(installed.get("version").string == "x.x.x")
+    // A config without a mask gets the range compatible with the installed version
+    assert(installed.get("version").string == "1.x.x")
 }
 
 // Builds `dir` and every directory above it inside `root`

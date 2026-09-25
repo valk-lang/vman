@@ -65,3 +65,19 @@ test "Mask: exact version matches only that version" {
     assert(!exact.is_compat(must_version("1.2.4")))
     assert(!exact.is_compat(must_version("1.3.3")))
 }
+
+test "Mask: a dependency installed without a mask records the compatible range" {
+    assert(vman.Mask.compatible_with(must_version("0.2.3")).name == "0.2.x")
+    assert(vman.Mask.compatible_with(must_version("v1.4.0")).name == "1.x.x")
+    assert(vman.Mask.compatible_with(must_version("12.0.9")).name == "12.x.x")
+    assert(vman.Mask.compatible_with(must_version("0.0.7")).name == "0.0.7")
+    // A 0.x update to the next minor may break: it is outside the range
+    let pinned = vman.Mask.compatible_with(must_version("0.1.0"))
+    assert(pinned.is_compat(must_version("0.1.5")))
+    assert(!pinned.is_compat(must_version("0.2.0")))
+    let major = vman.Mask.compatible_with(must_version("2.1.0"))
+    assert(major.is_compat(must_version("2.9.0")))
+    assert(!major.is_compat(must_version("3.0.0")))
+    // A tag that is not a version allows any version
+    assert(vman.Mask.compatible_with(vman.Version { name: "main" }).name == "x.x.x")
+}

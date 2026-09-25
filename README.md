@@ -187,6 +187,12 @@ highest one matching the version mask that supports the valk version of the
 project: its `use`, or the version in use when it has none. `vman versions {pkg}`
 lists every tagged version with its requirement.
 
+Without a mask (`vman install {pkg} 1.x.x`), the one saved in `valk.json` keeps
+later updates compatible with the version installed: `1.x.x` for 1.4.0, `0.2.x`
+for 0.2.3 (a new minor version may break under 0.x) and `0.0.7` for 0.0.7.
+`vman update` moves to the newest version within that mask; install the package
+again to move past it.
+
 A package that needs a newer valk is an error: `vman install` and `vman update`
 stop when no version of it fits, or when an installed dependency does not.
 `--ignore-min` goes ahead with a warning instead:

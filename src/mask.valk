@@ -47,6 +47,16 @@ class Mask {
         }
     }
 
+    // The mask a dependency installed without one records: the versions that should not break
+    // it. 0.0.z allows only itself, 0.y.z allows 0.y.x and n.y.z (n >= 1) allows n.x.x, as the
+    // caret of npm and cargo does.
+    static fn compatible_with(v: Version) SELF {
+        if !v.can_compare : return SELF { name: "x.x.x", n1_any: true, n2_any: true, n3_any: true }
+        if v.n1 > 0 : return SELF { name: v.n1 + ".x.x", n1: v.n1, n1_any: false, n2_any: true, n3_any: true }
+        if v.n2 > 0 : return SELF { name: "0." + v.n2 + ".x", n2: v.n2, n1_any: false, n2_any: false, n3_any: true }
+        return SELF { name: "0.0." + v.n3, n3: v.n3, n1_any: false, n2_any: false, n3_any: false }
+    }
+
     static fn is_mask(value: String) bool {
         let mask = SELF.new(value) ! return false
         return mask.n1_any || mask.n2_any || mask.n3_any
