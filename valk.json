@@ -1,6 +1,6 @@
 {
     "name": "vman",
-    "use": "0.7.4",
+    "use": "0.7.8",
     "define": {
         "VERSION": "0.3.1"
     },

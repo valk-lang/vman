@@ -29,6 +29,13 @@ dist-linux-x64:
 	cp ./env ./dists/linux-x64/env
 	cd ./dists/linux-x64/ && tar -czf  ../vman-linux-x64.tar.gz $(PACK_FILES)
 
+dist-linux-arm64:
+	rm -rf ./dists/linux-arm64/
+	mkdir -p ./dists/linux-arm64/bin
+	$(vc) build -o ./dists/linux-arm64/bin/vman $(DEFS) --target linux-arm64 $(DIST_FLAG)
+	cp ./env ./dists/linux-arm64/env
+	cd ./dists/linux-arm64/ && tar -czf  ../vman-linux-arm64.tar.gz $(PACK_FILES)
+
 dist-macos-x64:
 	rm -rf ./dists/macos-x64/
 	mkdir -p ./dists/macos-x64/bin
@@ -51,9 +58,9 @@ dist-win:
 	cp ./dists/cacert.pem ./dists/win-x64/bin/cacert.pem
 	cd ./dists/win-x64/ && tar -czf  ../vman-win-x64.tar.gz $(PACK_FILES_WIN)
 
-dist-all: dist-linux-x64 dist-macos-x64 dist-macos-arm64 dist-win
+dist-all: dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
 
 #
 
-.PHONY: vman win test clean test dist-all dist-linux-x64 dist-macos-x64 dist-macos-arm64 dist-win
+.PHONY: vman win test clean test dist-all dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
 
