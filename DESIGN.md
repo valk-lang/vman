@@ -52,7 +52,7 @@ valk-requirement: the lowest valk version a package declares in its own valk.jso
 - select the highest version that matches the version-mask (error if none match)
 -- if there is a project-valk-version: select the highest matching version whose valk-requirement includes it (if none, print the matching versions with their requirements and error)
 - clone repo to ~/.vman/repos if not exists, checkout the hash, copy files to the 'package-dir'
-- store version-mask in "version"; without a version-mask, store the mask compatible with the installed version instead: 0.0.z -> "0.0.z", 0.y.z -> "0.y.x", n.y.z -> "n.x.x" (like npm/cargo's caret), so `vman update` does not cross a breaking change
+- store version-mask in "version"; without a version-mask, store the installed version with its last number open instead: n.y.z -> "n.y.x", so `vman update` only takes patch releases
 - store version in "current" & hash in "current_hash"
 - save config
 - success msg, followed by the valk-requirement of the installed version if it's not "any"
