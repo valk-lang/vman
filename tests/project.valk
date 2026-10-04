@@ -67,6 +67,11 @@ synctest "Project: persists dependency configuration" {
     assert(written.get("dependencies").get("example").get("current").string == "1.2.3")
     assert(written.get("dependencies").get("example").get("current_hash").string == "0123456789abcdef0123456789abcdef01234567")
 
+    // An exact version from the user is kept as it is
+    pkg.mask = must_mask("1.2.3")
+    project.add_pkg_to_config(pkg, "example")
+    assert(project.config.get("dependencies").get("example").get("version").string == "1.2.3")
+
     pkg.ver = must_version("1.2.4")
     pkg.ver.hash = "abcdef0123456789abcdef0123456789abcdef0"
     pkg.mask = null
