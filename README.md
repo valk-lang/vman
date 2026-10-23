@@ -202,11 +202,11 @@ vman install github.com/user/repo --ignore-min
 ```
 
 A package that ships compiled libraries (a `libs/<target>` directory) is only
-linked when its entry in `valk.json` says `"allow-libs": true`, so you know a
-dependency brings binaries. `--allow-libs` writes it:
+linked when its entry in `valk.json` says `"libs": true`, so you know a
+dependency brings binaries. `--libs` writes it:
 
 ```
-vman install github.com/valk-lang/openssl-win-x64 --allow-libs
+vman install github.com/valk-lang/openssl-win-x64 --libs
 ```
 
 `vman use {version}` switches in any case, and warns when the project's
