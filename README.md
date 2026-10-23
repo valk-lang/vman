@@ -201,6 +201,14 @@ stop when no version of it fits, or when an installed dependency does not.
 vman install github.com/user/repo --ignore-min
 ```
 
+A package that ships compiled libraries (a `libs/<target>` directory) is only
+linked when its entry in `valk.json` says `"allow-libs": true`, so you know a
+dependency brings binaries. `--allow-libs` writes it:
+
+```
+vman install github.com/valk-lang/openssl-win-x64 --allow-libs
+```
+
 `vman use {version}` switches in any case, and warns when the project's
 dependencies need a newer valk. `vman install` and `vman update` also warn when the
 valk in use is older than the project's `use` version, because a build would use that

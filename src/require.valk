@@ -9,6 +9,8 @@ value IGNORE_MIN_HINT ("pass --ignore-min to go ahead anyway")
 // Set by --ignore-min: a package that needs a newer valk is installed with a warning
 // instead of an error
 global ignore_min : bool (false)
+// Set by --allow-libs: the installed package may ship compiled libraries
+global allow_libs : bool (false)
 
 // The lowest valk compiler version a package declares in its valk.json:
 // { "require": { "valk": { "min": "0.7.0" } } }

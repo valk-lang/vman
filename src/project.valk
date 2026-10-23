@@ -158,6 +158,7 @@ class Project {
         dep = dep.set("src", json.new_string(pkg.name))
         dep = dep.set("current", json.new_string(pkg.ver.name))
         dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
+        if allow_libs : dep = dep.set("allow-libs", json.new_bool(true))
 
         let mask = pkg.mask
         if isset(mask) && pkg.mask_given {
