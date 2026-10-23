@@ -1,6 +1,6 @@
 {
     "name": "vman",
-    "use": "0.7.8",
+    "use": "0.8.0",
     "define": {
         "VERSION": "0.3.3"
     },
@@ -16,6 +16,34 @@
             "version": "0.2.x",
             "current": "0.2.0",
             "current_hash": "62ae3c2ecc9b5d90e3d20fb2e3e4f250fb80d4e8"
+        },
+        "openssl_win_x64": {
+            "src": "github.com/valk-lang/openssl-win-x64",
+            "current": "3.5.9",
+            "current_hash": "0068d30abd4071cf087302929422bcf91d075eed",
+            "libs": true,
+            "version": "3.5.x"
+        },
+        "openssl_macos_x64": {
+            "src": "github.com/valk-lang/openssl-macos-x64",
+            "current": "3.5.9",
+            "current_hash": "05b987bf79505fbbfc982faec24bbf52a6a44b04",
+            "libs": true,
+            "version": "3.5.x"
+        },
+        "openssl_macos_arm64": {
+            "src": "github.com/valk-lang/openssl-macos-arm64",
+            "current": "3.5.9",
+            "current_hash": "1edd52f3e2bb48db258f07da882f7d86a319eb9b",
+            "libs": true,
+            "version": "3.5.x"
+        },
+        "openssl_linux_arm64": {
+            "src": "github.com/valk-lang/openssl-linux-arm64",
+            "current": "3.5.9",
+            "current_hash": "bc15ef0c9556cfad4e0602837642c4a335cf67ca",
+            "libs": true,
+            "version": "3.5.x"
         }
     }
 }
