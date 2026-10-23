@@ -58,9 +58,13 @@ dist-win:
 	cp ./dists/cacert.pem ./dists/win-x64/bin/cacert.pem
 	cd ./dists/win-x64/ && tar -czf  ../vman-win-x64.tar.gz $(PACK_FILES_WIN)
 
-dist-all: dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
+# The cross targets link OpenSSL from the openssl-<target> packages
+deps:
+	vman install
+
+dist-all: deps dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
 
 #
 
-.PHONY: vman win test clean test dist-all dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
+.PHONY: vman win test clean test deps dist-all dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
 
