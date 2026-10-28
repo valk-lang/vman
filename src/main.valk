@@ -230,7 +230,7 @@ fn project_dependency_names() Array[String] {
     if !fs.exists(Project.get_config_path()) : return names
     let project = Project.load()
     let deps = project.config.get("dependencies").object
-    each deps.values.keys() as key : names.append(key)
+    each deps.keys() as key : names.append(key)
     return names
 }
 
@@ -240,7 +240,7 @@ fn project_package_names() Array[String] {
     if !fs.exists(Project.get_config_path()) : return names
     let project = Project.load()
     let deps = project.config.get("dependencies").object
-    each deps.values as dep, key {
+    each deps as dep, key {
         let src = dep.get("src").string
         if src.length > 0 && !fs.is_dir(src) : names.append(src)
     }

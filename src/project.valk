@@ -60,7 +60,7 @@ class Project {
     fn check_dep_requirements(valk: Version, warn_only: bool (false)) {
         let problems = Array[String]{}
         let deps = this.config.get("dependencies").object
-        each deps.values as dep, key {
+        each deps as dep, key {
             let src = dep.get("src").string
             if src.is_empty() : continue
             let dir = src
@@ -185,7 +185,7 @@ class Project {
         // that a cycle in the configs cannot run forever
         if depth > MAX_DEPENDENCY_DEPTH : error("Dependencies nest deeper than %{MAX_DEPENDENCY_DEPTH} levels, which looks like a cycle: " + this.config_path)
 
-        each deps.values.keys() as key {
+        each deps.keys() as key {
             let dep = deps.get(key) ! {
                 continue
             }
@@ -261,7 +261,7 @@ class Project {
             if deps.length == 0 : continue
 
             let rewritten = false
-            each deps.values.keys() as key {
+            each deps.keys() as key {
                 let dep = deps.get(key) ! continue
                 let src = dep.get("src").string
                 // Already pointed at a directory, by this pass or by the package itself
@@ -343,7 +343,7 @@ class Project {
 
             // Collect every version current in the config that maps to this package
                 let used = Array[Version]{}
-            each deps.values.keys() as key {
+            each deps.keys() as key {
                 let dep = deps.get(key) ! {
                     continue
                 }

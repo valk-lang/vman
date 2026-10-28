@@ -210,7 +210,7 @@ fn cmd_template_write(name: String, dir: ?String, force: bool) {
 
     let dependencies = template.dependencies
     if isset(dependencies) {
-        each dependencies.object.values.keys() as alias {
+        each dependencies.object.keys() as alias {
             let dep = dependencies.get(alias)
             let src = dep.get("src").string
             if src.bytes == 0 : continue
@@ -233,7 +233,7 @@ fn merge_into_config(config: json.Value, project_name: String) {
     let data = fs.read(path) ! error("Failed to read: " + path)
     let current = json.decode(data) ! error("Invalid json syntax in '" + path + "'")
     let changed = false
-    each config.object.values.keys() as key {
+    each config.object.keys() as key {
         if current.has(key) : continue
         let value = config.get(key)
         if value.kind == json.Kind.string : value = json.new_string(value.string.replace("{{name}}", project_name))

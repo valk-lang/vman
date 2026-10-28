@@ -249,7 +249,7 @@ fn remembered_programs(dir: String) Array[String] {
     let path = fs.add(dir, "valk.json")
     let str = fs.read(path) ! return result
     let config = json.decode(str) ! return result
-    each config.get("programs").array.values as value : result.append(value.string)
+    each config.get("programs").array as value : result.append(value.string)
     return result
 }
 

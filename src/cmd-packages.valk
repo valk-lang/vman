@@ -49,7 +49,7 @@ fn cmd_package_update() {
 
     // Remove the pinned version so install re-resolves the latest matching the "version" mask
     let before = Map[String]{}
-    each deps.values.keys() as key {
+    each deps.keys() as key {
         let dep = deps.get(key) ! {
             continue
         }
@@ -65,7 +65,7 @@ fn cmd_package_update() {
 
     let after = p.config.get("dependencies").object
     let changed = 0
-    each after.values.keys() as key {
+    each after.keys() as key {
         let dep = after.get(key) ! continue
         let now = dep.get("current").string
         let was = before.get(key) !? ""

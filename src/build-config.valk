@@ -23,7 +23,7 @@ fn builds_of(dir: String) Array[Build] {
     let result = Array[Build]{}
     let config = config_of(dir) ?! return result
     let make = config.get("make")
-    each make.object.values.keys() as name {
+    each make.object.keys() as name {
         let value = make.get(name)
         // A target written as a line runs a command, which is not something to install
         if value.kind == json.Kind.string : continue
