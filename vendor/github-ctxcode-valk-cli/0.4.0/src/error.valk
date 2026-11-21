@@ -1,0 +1,47 @@
+/// Thrown while the command line is read.
+///
+/// Each variant carries `(message, command)`. `message` is written for the person who typed the
+/// command, and `command` names the command that was being read, so the usage line can be printed
+/// with it (or `""` when none applies).
+///
+/// - `unknown_flag(message, command)`: an option the command does not have.
+/// - `unknown_command(message, command)`: a subcommand that does not exist.
+/// - `missing_value(message, command)`: an option that takes a value was given none.
+/// - `missing_argument(message, command)`: a required argument or option was left out.
+/// - `invalid_value(message, command)`: a value that is not a number where one is expected, or not one of the
+///   choices an option allows.
+/// - `usage(message, command)`: the command line could not be read for another reason.
++ union Error {
+    unknown_flag(String, String)
+    unknown_command(String, String)
+    missing_value(String, String)
+    missing_argument(String, String)
+    invalid_value(String, String)
+    usage(String, String)
+
+    + get message: String {
+        return match this : String {
+            .unknown_flag(msg, _) => msg
+            .unknown_command(msg, _) => msg
+            .missing_value(msg, _) => msg
+            .missing_argument(msg, _) => msg
+            .invalid_value(msg, _) => msg
+            .usage(msg, _) => msg
+        }
+    }
+
+    + get command: String {
+        return match this : String {
+            .unknown_flag(_, cmd) => cmd
+            .unknown_command(_, cmd) => cmd
+            .missing_value(_, cmd) => cmd
+            .missing_argument(_, cmd) => cmd
+            .invalid_value(_, cmd) => cmd
+            .usage(_, cmd) => cmd
+        }
+    }
+
+    + fn to_string() String $auto {
+        return this.message
+    }
+}

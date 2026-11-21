@@ -67,8 +67,8 @@ fn link_version(version: Version) {
     #else
     // Create link
     fs.symlink(link, to, false) ! {
-        if E.code == E.access : error("Failed to create symlink | Admin privileges required")
-        if E.code == E.exists : error("Failed to create symlink | File already exists")
+        if E == .access : error("Failed to create symlink | Admin privileges required")
+        if E == .exists : error("Failed to create symlink | File already exists")
         error("Failed to create symlink")
     }
     #end

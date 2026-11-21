@@ -86,7 +86,7 @@ test "Require: reports why no version was selected" {
     let versions = Array[vman.Version] { must_version("1.2.0"), must_version("2.0.0") }
 
     vman.select_version(versions, must_mask("3.x"), null, require_lookup) ! {
-        assert(E.code == E.none)
+        assert(E == .none)
         return
     }
     assert(false)
@@ -96,7 +96,7 @@ test "Require: reports incompatible versions" {
     let versions = Array[vman.Version] { must_version("1.2.0"), must_version("2.0.0") }
 
     vman.select_version(versions, must_mask("2.x"), must_version("0.7.1"), require_lookup) ! {
-        assert(E.code == E.incompatible)
+        assert(E == .incompatible)
         return
     }
     assert(false)

@@ -206,7 +206,7 @@
         }
         each own as name {
             let global = taken.get(name) ! continue
-            throw .usage { message: "'" + this.path() + "' declares " + name + ", which the global option --" + global + " already uses", command: this.path() }
+            throw .usage("'" + this.path() + "' declares " + name + ", which the global option --" + global + " already uses", this.path())
         }
         each this.commands as sub : sub.check_globals() !>
     }

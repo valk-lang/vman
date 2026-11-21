@@ -61,7 +61,7 @@
         let text = this.value(long)
         if text.length == 0 : return fallback
         return text.to_int() ! {
-            throw .invalid_value { message: "--" + long + " takes a whole number, not '" + text + "'", command: this.command.path() }
+            throw .invalid_value("--" + long + " takes a whole number, not '" + text + "'", this.command.path())
         }
     }
 
@@ -70,7 +70,7 @@
         let text = this.value(long)
         if text.length == 0 : return fallback
         return text.to_float() ! {
-            throw .invalid_value { message: "--" + long + " takes a number, not '" + text + "'", command: this.command.path() }
+            throw .invalid_value("--" + long + " takes a number, not '" + text + "'", this.command.path())
         }
     }
 

@@ -1,5 +1,13 @@
 
-error VersionError (invalid)
+union VersionError {
+    invalid
+
+    + fn to_string() String $auto {
+        return match this : String {
+            .invalid => "invalid"
+        }
+    }
+}
 
 class Version {
     name: String

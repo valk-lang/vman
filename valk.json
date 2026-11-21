@@ -1,6 +1,6 @@
 {
     "name": "vman",
-    "use": "0.8.10",
+    "use": "0.9.1",
     "define": {
         "VERSION": "0.3.4"
     },
@@ -13,9 +13,9 @@
         },
         "cli": {
             "src": "github.com/ctxcode/valk-cli",
-            "version": "0.3.x",
-            "current": "0.3.1",
-            "current_hash": "09d35039bdf8462d39e1be32be4e0a24f74eefe3"
+            "version": "0.4.x",
+            "current": "0.4.0",
+            "current_hash": "819f8dceab4317233f8e608837df787369461efe"
         },
         "openssl_win_x64": {
             "src": "github.com/valk-lang/openssl-win-x64",

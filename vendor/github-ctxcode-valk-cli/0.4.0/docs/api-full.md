@@ -7,28 +7,6 @@ Namespaces: [main](#main)
 
 # main
 
-## Errors for 'main'
-
-```js
-// Thrown while the command line is read.
-+ error Error (unknown_flag, unknown_command, missing_value, missing_argument, invalid_value, usage) payload { message: String, command: String ("") }
-```
-
-### Error
-
-Thrown while the command line is read.
-
-- `unknown_flag`: an option the command does not have.
-- `unknown_command`: a subcommand that does not exist.
-- `missing_value`: an option that takes a value was given none.
-- `missing_argument`: a required argument or option was left out.
-- `invalid_value`: a value that is not a number where one is expected, or not one of the
-  choices an option allows.
-- `usage`: the command line could not be read for another reason.
-
-`message` is written for the person who typed the command, and `command` names the command
-that was being read, so the usage line can be printed with it.
-
 ## Enums for 'main'
 
 ```js
@@ -499,6 +477,38 @@ default, else `fallback`.
 #### values
 
 Returns every value an option was given, for one that may be repeated.
+
+```js
+// Thrown while the command line is read.
++ union Error {
+    unknown_flag(String, String)
+    unknown_command(String, String)
+    missing_value(String, String)
+    missing_argument(String, String)
+    invalid_value(String, String)
+    usage(String, String)
+
+    + get command: String
+    + get message: String
+    + fn to_string() String
+}
+```
+
+### Error
+
+Thrown while the command line is read.
+
+Each variant carries `(message, command)`. `message` is written for the person who typed the
+command, and `command` names the command that was being read, so the usage line can be printed
+with it (or `""` when none applies).
+
+- `unknown_flag(message, command)`: an option the command does not have.
+- `unknown_command(message, command)`: a subcommand that does not exist.
+- `missing_value(message, command)`: an option that takes a value was given none.
+- `missing_argument(message, command)`: a required argument or option was left out.
+- `invalid_value(message, command)`: a value that is not a number where one is expected, or not one of the
+  choices an option allows.
+- `usage(message, command)`: the command line could not be read for another reason.
 
 ```js
 // A switch: `--verbose`, or `-v`. It takes no value, and is either given or not.

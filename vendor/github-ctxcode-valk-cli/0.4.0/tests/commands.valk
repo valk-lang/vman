@@ -64,7 +64,7 @@ test "Subcommands" {
 
     // A command that does not exist, with the nearest one offered
     app.parse(args(.{ "remove", "x" })) ! {
-        assert(error_is(E.code, unknown_command))
+        assert(E is .unknown_command)
         assert(E.message.contains("Did you mean 'remote'"))
         return
     }
@@ -159,7 +159,7 @@ synctest "An environment variable is held to the choices" {
     core.setenv("TOOL_TEST_MODE", "sideways") ! { assert(false) return }
     let refused = false
     app.parse(args(.{})) ! {
-        refused = error_is(E.code, invalid_value) && E.message.contains("TOOL_TEST_MODE")
+        refused = E is .invalid_value && E.message.contains("TOOL_TEST_MODE")
     }
     assert(refused)
     // What is typed wins, so the environment is not looked at
@@ -212,7 +212,7 @@ test "Global options are accepted by the commands under their command" {
 
     // A switch that is not global stays with its own command
     let refused = false
-    app.parse(args(.{ "add", "-q", "a.txt" })) ! { refused = error_is(E.code, unknown_flag) }
+    app.parse(args(.{ "add", "-q", "a.txt" })) ! { refused = E is .unknown_flag }
     assert(refused)
 
     // The subcommand's help lists them apart from its own options

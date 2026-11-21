@@ -200,7 +200,7 @@ fn link_program(dir: String, program: String, into: String) {
     fs.write(link, content) ! error("Failed to write: " + link)
     #else
     fs.symlink(link, to, false) ! {
-        if E.code == E.access : error("Failed to link '" + link + "' | No permission")
+        if E == .access : error("Failed to link '" + link + "' | No permission")
         error("Failed to link: " + link)
     }
     #end

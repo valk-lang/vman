@@ -3,7 +3,7 @@
     "dependencies": {
         "cli": {
             "src": "github.com/ctxcode/valk-cli",
-            "version": "0.3.x"
+            "version": "0.4.x"
         }
     }
 }

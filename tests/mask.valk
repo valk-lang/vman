@@ -5,7 +5,7 @@ use vman
 
 fn mask_is_invalid(name: String) bool {
     vman.Mask.new(name) ! {
-        return E.code == E.invalid
+        return E == .invalid
     }
     return false
 }

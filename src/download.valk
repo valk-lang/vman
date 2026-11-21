@@ -71,7 +71,7 @@ fn download_version(v: Version, to_path: String) {
     }
 
     let req = http.create_request("GET", url, options) ! {
-        if E.code == E.invalid_url : error("Invalid URL: " + url)
+        if E == .invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
@@ -79,7 +79,7 @@ fn download_version(v: Version, to_path: String) {
         print("
 ")
         out.close() _
-        if E.code == E.disconnected : error("Failed to download: " + url)
+        if isset(E.io_error()) : error("Failed to download: " + url)
         error("Invalid response from: " + url)
     } {
         print("

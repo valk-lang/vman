@@ -17,7 +17,7 @@ fn main(args: Array[String]) {
     hello.flag("loud", "l", "Greet in capitals")
     hello.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         let times = ctx.int("times", 1) !>
-        if times < 1 : throw .invalid_value { message: "--times takes a number above zero", command: ctx.command.path() }
+        if times < 1 : throw .invalid_value("--times takes a number above zero", ctx.command.path())
 
         let names = Array[String]{ ctx.arg("name") }
         names.append_many(ctx.args("others"))

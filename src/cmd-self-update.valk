@@ -27,7 +27,7 @@ fn self_update() {
     }
 
     let req = http.create_request("GET", url, options) ! {
-        if E.code == E.invalid_url : error("Invalid URL: " + url)
+        if E == .invalid_url : error("Invalid URL: " + url)
         error("Failed to download: " + url)
     }
 
@@ -35,7 +35,7 @@ fn self_update() {
         print("
 ")
         out.close() _
-        if E.code == E.disconnected : error("Failed to download: " + url)
+        if isset(E.io_error()) : error("Failed to download: " + url)
         error("Invalid response from: " + url)
     } {
         print("

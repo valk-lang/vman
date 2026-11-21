@@ -5,7 +5,7 @@ use vman
 
 fn version_is_invalid(name: String) bool {
     vman.Version.new(name) ! {
-        return E.code == E.invalid
+        return E == .invalid
     }
     return false
 }

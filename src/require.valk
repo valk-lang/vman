@@ -2,7 +2,17 @@
 use valk.json
 use valk.core
 
-error SelectError (none, incompatible)
+union SelectError {
+    none
+    incompatible
+
+    + fn to_string() String $auto {
+        return match this : String {
+            .none => "none"
+            .incompatible => "incompatible"
+        }
+    }
+}
 
 value IGNORE_MIN_HINT ("pass --ignore-min to go ahead anyway")
 
@@ -79,7 +89,7 @@ fn select_version(versions: Array[Version], mask: ?Mask, valk: ?Version, require
 // or with --ignore-min a warning and the newest version matching `mask`.
 fn pick_version(name: String, versions: Array[Version], mask: Mask, valk: ?Version, require_of: fn(Version)(ValkRequire)) Version {
     return select_version(versions, mask, valk, require_of) ! {
-        if E.code == E.none || !isset(valk) : error("Package '%name' has no versions matching: " + mask.name)
+        if E == .none || !isset(valk) : error("Package '%name' has no versions matching: " + mask.name)
         println("# Versions of '%name' matching '" + mask.name + "' (project uses valk " + valk.name + ")")
         print_version_table(versions.filter(fn(v: Version) bool { return mask.is_compat(v) }), valk, require_of)
         if !ignore_min : error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk.name, IGNORE_MIN_HINT)

@@ -75,7 +75,7 @@ extend App {
             if named == "zsh" : shell = Shell.zsh
             else if named == "fish" : shell = Shell.fish
             else if named != "bash" {
-                throw .invalid_value { message: "'" + named + "' is not a shell this can complete; try bash, zsh or fish", command: ctx.command.path() }
+                throw .invalid_value("'" + named + "' is not a shell this can complete; try bash, zsh or fish", ctx.command.path())
             }
             app.write(app.completion_script(shell))
             return 0

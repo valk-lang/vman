@@ -56,13 +56,13 @@ test "CLI: the command line is read into commands and arguments" {
 
     // The ones that need an argument say so instead of doing nothing
     app.parse(.{ "vman", "remove" }) ! {
-        assert(error_is(E.code, missing_argument))
+        assert(E is .missing_argument)
         assert(E.message.contains("<package>"))
     }
 
     // A command that does not exist offers the nearest one
     app.parse(.{ "vman", "instal" }) ! {
-        assert(error_is(E.code, unknown_command))
+        assert(E is .unknown_command)
         assert(E.message.contains("Did you mean 'install'"))
         return
     }

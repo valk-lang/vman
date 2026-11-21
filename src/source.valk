@@ -1,7 +1,15 @@
 
 use valk.core
 
-error SourceError (none)
+union SourceError {
+    none
+
+    + fn to_string() String $auto {
+        return match this : String {
+            .none => "none"
+        }
+    }
+}
 
 // The versions in `git ls-remote --tags` output: `<hash>\trefs/tags/<name>` per tag, and for
 // an annotated tag also `<hash>\trefs/tags/<name>^{}`, the commit it points at, which wins.

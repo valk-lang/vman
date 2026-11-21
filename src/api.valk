@@ -3,7 +3,15 @@ use valk.http
 use valk.json
 use valk.time
 
-error ApiError (err)
+union ApiError {
+    err
+
+    + fn to_string() String $auto {
+        return match this : String {
+            .err => "err"
+        }
+    }
+}
 
 fn cdn_versions_url() String {
     return "https://files.valk-cdn.dev/releases/versions.json"

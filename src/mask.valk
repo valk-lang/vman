@@ -1,5 +1,13 @@
 
-error MaskError (invalid)
+union MaskError {
+    invalid
+
+    + fn to_string() String $auto {
+        return match this : String {
+            .invalid => "invalid"
+        }
+    }
+}
 
 class Mask {
     name: String

@@ -157,7 +157,7 @@ Your handler throws `cli.Error` for anything the person typed wrong, which is pr
 way as the errors above:
 
 ```rust
-if times < 1 : throw .invalid_value { message: "--times takes a number above zero", command: ctx.command.path() }
+if times < 1 : throw .invalid_value("--times takes a number above zero", ctx.command.path())
 ```
 
 ## Tab completion

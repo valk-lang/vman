@@ -7,13 +7,6 @@ Namespaces: [main](#main)
 
 # main
 
-## Errors for 'main'
-
-```js
-// Thrown while the command line is read.
-+ error Error (unknown_flag, unknown_command, missing_value, missing_argument, invalid_value, usage) payload { message: String, command: String ("") }
-```
-
 ## Enums for 'main'
 
 ```js
@@ -158,6 +151,22 @@ Namespaces: [main](#main)
     + fn value(long: String, fallback: String ("")) String
     // Returns every value an option was given, for one that may be repeated.
     + fn values(long: String) Array[String]
+}
+```
+
+```js
+// Thrown while the command line is read.
++ union Error {
+    unknown_flag(String, String)
+    unknown_command(String, String)
+    missing_value(String, String)
+    missing_argument(String, String)
+    invalid_value(String, String)
+    usage(String, String)
+
+    + get command: String
+    + get message: String
+    + fn to_string() String
 }
 ```
 

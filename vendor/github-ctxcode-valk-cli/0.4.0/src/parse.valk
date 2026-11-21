@@ -58,7 +58,7 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
             let flag = command.find_flag(name)
             if isset(flag) {
                 if isset(value) {
-                    throw .usage { message: "--" + name + " is a switch and takes no value", command: command.path() }
+                    throw .usage("--" + name + " is a switch and takes no value", command.path())
                 }
                 context.given_flags.set(name, true)
                 continue
@@ -67,7 +67,7 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
             let option = command.find_option(name)
             if !isset(option) : unknown_flag(command, "--" + name)
             if !isset(value) {
-                if index >= args.length : throw .missing_value { message: "--" + name + " needs a value", command: command.path() }
+                if index >= args.length : throw .missing_value("--" + name + " needs a value", command.path())
                 value = args.get(index++) !? ""
             }
             add_option_value(context, command, option, value) !>
@@ -118,7 +118,7 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
                     if value.starts_with("=") : value = value.range(1, value.length - 1)
                     at = letters.length
                 } else {
-                    if index >= args.length : throw .missing_value { message: "-" + letter + " needs a value", command: command.path() }
+                    if index >= args.length : throw .missing_value("-" + letter + " needs a value", command.path())
                     value = args.get(index++) !? ""
                 }
                 add_option_value(context, command, option, value) !>
@@ -166,14 +166,14 @@ fn char_bytes(lead: u8) uint {
 // Adds a value to an option, refusing a second one unless the option may be repeated
 fn add_option_value(context: Context, command: Command, option: Option, value: String) !Error {
     if option.choices.length > 0 && !option.choices.contains(value) {
-        throw .invalid_value {
-            message: "--" + option.long + " takes one of " + option.choices.join(", ") + ", not '" + value + "'"
-            command: command.path()
-        }
+        throw .invalid_value(
+            "--" + option.long + " takes one of " + option.choices.join(", ") + ", not '" + value + "'",
+            command.path()
+        )
     }
     let values = context.given_options.get(option.long) !? .{}
     if values.length > 0 && !option.repeated {
-        throw .usage { message: "--" + option.long + " was given more than once", command: command.path() }
+        throw .usage("--" + option.long + " was given more than once", command.path())
     }
     values.append(value)
     context.given_options.set(option.long, values)
@@ -187,10 +187,10 @@ fn read_environment(context: Context, command: Command) !Error {
         let value = core.getenv(option.env) ! continue
         if value.length == 0 : continue
         if option.choices.length > 0 && !option.choices.contains(value) {
-            throw .invalid_value {
-                message: option.env + " takes one of " + option.choices.join(", ") + ", not '" + value + "'"
-                command: command.path()
-            }
+            throw .invalid_value(
+                option.env + " takes one of " + option.choices.join(", ") + ", not '" + value + "'",
+                command.path()
+            )
         }
         let values = Array[String]{ value }
         context.given_options.set(option.long, values)
@@ -236,7 +236,7 @@ fn fill_arguments(context: Context, command: Command, positional: Array[String])
     if at < positional.length {
         let extra = positional.get(at) !? ""
         if command.commands.length > 0 : unknown_command(command, extra)
-        throw .usage { message: "This command takes no argument '" + extra + "'", command: command.path() }
+        throw .usage("This command takes no argument '" + extra + "'", command.path())
     }
 }
 
@@ -246,14 +246,14 @@ fn check_required(context: Context, command: Command) !Error {
         if !option.required : continue
         if context.has(option.long) : continue
         if option.default.length > 0 : continue
-        throw .missing_argument { message: "--" + option.long + " is required", command: command.path() }
+        throw .missing_argument("--" + option.long + " is required", command.path())
     }
     each command.arguments as argument {
         if !argument.required : continue
         if argument.variadic {
             if context.args(argument.name).length > 0 : continue
         } else if context.has_arg(argument.name) : continue
-        throw .missing_argument { message: "<" + argument.name + "> is required", command: command.path() }
+        throw .missing_argument("<" + argument.name + "> is required", command.path())
     }
 }
 
@@ -264,7 +264,7 @@ fn unknown_flag(command: Command, written: String) !Error $throw {
     let suggestion = closest_name(written, names)
     let message = "Unknown option '" + written + "'"
     if suggestion.length > 0 : message += ". Did you mean '" + suggestion + "'?"
-    throw .unknown_flag { message: message, command: command.path() }
+    throw .unknown_flag(message, command.path())
 }
 
 fn unknown_command(command: Command, written: String) !Error $throw {
@@ -273,7 +273,7 @@ fn unknown_command(command: Command, written: String) !Error $throw {
     let suggestion = closest_name(written, names)
     let message = "Unknown command '" + written + "'"
     if suggestion.length > 0 : message += ". Did you mean '" + suggestion + "'?"
-    throw .unknown_command { message: message, command: command.path() }
+    throw .unknown_command(message, command.path())
 }
 
 // The name that is nearest to what was typed, when something is near enough to be worth saying
