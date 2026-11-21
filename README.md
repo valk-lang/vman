@@ -5,9 +5,17 @@ Used for installing Valk packages and managing compiler versions
 
 ## Install
 
+Linux / macOS:
+```bash
+curl -sSL https://valk-lang.dev/vman.sh | bash
 ```
-curl -s https://valk-lang.dev/install.sh | bash
+
+Windows (PowerShell):
+```powershell
+irm https://valk-lang.dev/vman.ps1 | iex
 ```
+
+To install `vman` together with the latest Valk compiler, use `https://valk-lang.dev/install.sh` (or `install.ps1` on Windows).
 
 ## Usage
 
