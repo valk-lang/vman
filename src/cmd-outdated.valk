@@ -1,0 +1,175 @@
+
+use valk.fs
+use valk.json
+
+class OutdatedDep {
+    alias: String
+    src: String
+    mask: String
+    current: String
+    wanted: String
+    latest: String
+    newest: String
+    newest_require: String ("")
+    has_wanted_update: bool (false)
+    has_latest_update: bool (false)
+    needs_newer_valk: bool (false)
+
+    fn is_outdated() bool {
+        return this.has_wanted_update || this.has_latest_update || this.needs_newer_valk
+    }
+
+    fn to_json() json.Value {
+        let obj: json.Value = json.new_object()
+        obj = obj.set("package", json.new_string(this.alias))
+        obj = obj.set("src", json.new_string(this.src))
+        obj = obj.set("mask", json.new_string(this.mask))
+        obj = obj.set("current", json.new_string(this.current))
+        obj = obj.set("wanted", json.new_string(this.wanted))
+        obj = obj.set("latest", json.new_string(this.latest))
+        if this.needs_newer_valk {
+            obj = obj.set("newest", json.new_string(this.newest))
+            obj = obj.set("newest_requires_valk", json.new_string(this.newest_require))
+        }
+        return obj
+    }
+}
+
+fn evaluate_outdated(
+    alias: String,
+    src: String,
+    current_str: String,
+    mask_str: String,
+    versions: Array[Version],
+    valk: ?Version,
+    require_of: fn(Version)(ValkRequire)
+) OutdatedDep {
+    let mask_name = mask_str.is_empty() ? "x.x.x" : mask_str
+    let mask = Mask.new(mask_name) !? null
+    let current_ver: ?Version = current_str.is_empty() ? null : (Version.new(current_str) !? null)
+    let newest_ver: ?Version = select_version(versions, null, null, require_of) !? null
+
+    // Fast path: already at or above the newest tag — no need to inspect per-tag valk requirements
+    if isset(current_ver) && isset(newest_ver) && current_ver >= newest_ver {
+        return OutdatedDep {
+            alias: alias
+            src: src
+            mask: mask_name
+            current: current_ver.name
+            wanted: current_ver.name
+            latest: current_ver.name
+            newest: newest_ver.name
+        }
+    }
+
+    let wanted_ver: ?Version = isset(mask) ? (select_version(versions, mask, valk, require_of) !? null) : null
+    let latest_ver: ?Version = select_version(versions, null, valk, require_of) !? null
+
+    let has_wanted = isset(wanted_ver) && (!isset(current_ver) || wanted_ver > current_ver)
+    let has_latest = isset(latest_ver) && (!isset(current_ver) || latest_ver > current_ver) && (!isset(wanted_ver) || latest_ver > wanted_ver)
+    let needs_valk = isset(valk) && isset(newest_ver) && (!isset(latest_ver) || newest_ver > latest_ver) && (!isset(current_ver) || newest_ver > current_ver)
+
+    let newest_req = ""
+    if needs_valk && isset(newest_ver) {
+        newest_req = require_of(newest_ver).str()
+    }
+
+    return OutdatedDep {
+        alias: alias
+        src: src
+        mask: mask_name
+        current: isset(current_ver) ? current_ver.name : "-"
+        wanted: isset(wanted_ver) ? wanted_ver.name : "-"
+        latest: isset(latest_ver) ? latest_ver.name : "-"
+        newest: isset(newest_ver) ? newest_ver.name : "-"
+        newest_require: newest_req
+        has_wanted_update: has_wanted
+        has_latest_update: has_latest
+        needs_newer_valk: needs_valk
+    }
+}
+
+fn cmd_package_outdated(as_json: bool) {
+    let p = Project.load()
+    let deps = p.config.get("dependencies").object
+    let valk = p.valk_version()
+
+    let checked: uint = 0
+    let outdated = Array[OutdatedDep]{}
+
+    each deps.keys().sorted() as key {
+        let dep = deps.get(key) ! continue
+        let src_str = dep.get("src").string
+        if src_str.is_empty() || src_str.starts_with(".") || fs.is_dir(src_str) : continue
+
+        checked++
+        let src = Source.new(src_str)
+        let versions = src.get_versions()
+        let repo_dir = fs.add(cache_repo_dir(), src.name)
+        let require_of = fn(v: Version) ValkRequire {
+            ensure_repo(src, repo_dir)
+            return require_at(repo_dir, v.hash)
+        }
+
+        let item = evaluate_outdated(key, src_str, dep.get("current").string, dep.get("version").string, versions, valk, require_of)
+        if item.is_outdated() : outdated.append(item)
+    }
+
+    if as_json {
+        let list = json.new_array()
+        each outdated as item : list.append(item.to_json())
+        let out: json.Value = list
+        println(out.encode(true))
+        return
+    }
+
+    if checked == 0 {
+        println("# This project has no registry dependencies")
+        return
+    }
+
+    if outdated.length == 0 {
+        if use_color() : println("# All dependencies are " + "up to date".ansi.green())
+        else : println("# All dependencies are up to date")
+        return
+    }
+
+    if isset(valk) : println("# Outdated dependencies (project uses valk " + valk.name + ")")
+    else : println("# Outdated dependencies")
+
+    let pkg_w: uint = "Package".bytes
+    let cur_w: uint = "Current".bytes
+    let want_w: uint = "Wanted".bytes
+    let lat_w: uint = "Latest".bytes
+    let mask_w: uint = "Mask".bytes
+    each outdated as item {
+        if item.alias.bytes > pkg_w : pkg_w = item.alias.bytes
+        if item.current.bytes > cur_w : cur_w = item.current.bytes
+        if item.wanted.bytes > want_w : want_w = item.wanted.bytes
+        if item.latest.bytes > lat_w : lat_w = item.latest.bytes
+        if item.mask.bytes > mask_w : mask_w = item.mask.bytes
+    }
+
+    println("  " + "Package" + pad_to("Package", pkg_w + 2) + "Current" + pad_to("Current", cur_w + 2) + "Wanted" + pad_to("Wanted", want_w + 2) + "Latest" + pad_to("Latest", lat_w + 2) + "Mask")
+
+    let any_wanted = false
+    each outdated as item {
+        if item.has_wanted_update : any_wanted = true
+        let wanted_col = (item.has_wanted_update && use_color()) ? item.wanted.ansi.green() : item.wanted
+        let latest_col = (item.has_latest_update && use_color()) ? item.latest.ansi.cyan() : item.latest
+        let line = "  " + item.alias + pad_to(item.alias, pkg_w + 2)
+            + item.current + pad_to(item.current, cur_w + 2)
+            + wanted_col + pad_to(item.wanted, want_w + 2)
+            + latest_col + pad_to(item.latest, lat_w + 2)
+            + item.mask
+        if item.needs_newer_valk {
+            line += pad_to(item.mask, mask_w + 2) + "(" + item.newest + " requires valk " + item.newest_require + ")"
+        }
+        println(line)
+    }
+
+    if any_wanted {
+        println("")
+        println("# Run 'vman update' to update packages within their version mask")
+    }
+}

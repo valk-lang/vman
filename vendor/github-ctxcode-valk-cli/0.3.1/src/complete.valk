@@ -135,8 +135,8 @@ fn argument_at(command: Command, before: Array[String]) ?Argument {
 
 fn long_names(command: Command, has_version: bool) Array[String] {
     let names = Array[String]{}
-    each command.flags as flag : names.append("--" + flag.long)
-    each command.options as option : names.append("--" + option.long)
+    each command.all_flags() as flag : names.append("--" + flag.long)
+    each command.all_options() as option : names.append("--" + option.long)
     names.append("--help")
     if has_version && !isset(command.parent) : names.append("--version")
     return names
@@ -144,13 +144,13 @@ fn long_names(command: Command, has_version: bool) Array[String] {
 
 fn short_names(command: Command) Array[String] {
     let names = Array[String]{}
-    each command.flags as flag {
+    each command.all_flags() as flag {
         if flag.short.length > 0 : names.append("-" + flag.short)
     }
-    each command.options as option {
+    each command.all_options() as option {
         if option.short.length > 0 : names.append("-" + option.short)
     }
-    names.append("-h")
+    if !isset(command.find_short_flag("h")) && !isset(command.find_short_option("h")) : names.append("-h")
     return names
 }
 

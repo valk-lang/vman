@@ -27,7 +27,7 @@ class Project {
         let dir = (fs.cwd() ! error("Failed to get current directory"))
         let vendor_dir = fs.add(dir, "vendor")
         let config_path = SELF.get_config_path()
-        if !fs.exists(config_path) : error("No 'valk.json' found: " + config_path)
+        if !fs.exists(config_path) : error("No 'valk.json' found in " + dir, "Run 'vman init' to create one")
 
         let str = fs.read(config_path) !? "{}"
         let data = json.decode(str) ! error("Invalid json syntax in '%config_path'")
@@ -80,7 +80,7 @@ class Project {
             return
         }
         each problems.range(0, problems.length - 1) as problem : warn(problem)
-        error(problems[problems.length - 1] + "; " + IGNORE_MIN_HINT)
+        error(problems[problems.length - 1], IGNORE_MIN_HINT)
     }
 
     // A project rooted at an installed package, so that the package's own dependencies can be
@@ -111,28 +111,8 @@ class Project {
         return fs.add(dir, "valk.json")
     }
 
-    static fn init_config() {
-        let path = SELF.get_config_path()
-        let exists = fs.exists(path)
-        let config: json.Value = json.new_object()
-
-        if exists {
-            let data = fs.read(path) ! error("Failed to read: " + path)
-            config = json.decode(data) ! error("Invalid json syntax in '" + path + "'")
-            if config.has("use") {
-                println("# Project already has a 'valk.json' config")
-                return
-            }
-        }
-
-        let version = current_used_version()
-        if isset(version) : config = config.set("use", json.new_string(version.name))
-        else if exists {
-            println("# Project already has a 'valk.json' config")
-            return
-        }
-
-        fs.write(path, config.encode(true)) ! error("Failed to create: " + path)
+    static fn init_config(name: ?String (null), use_ver: ?String (null), min_valk: ?String (null), announce: bool (true)) {
+        init_config_at(SELF.get_config_path(), name, use_ver, min_valk, current_used_version(), announce)
     }
 
     fn add_pkg_to_config(pkg: Package, name: ?String) {
@@ -143,7 +123,7 @@ class Project {
             if pkg_conf.has("name") && is_valid_pkg_name(pkg_conf.get("name").string) {
                 n = pkg_conf.get("name").string
             }
-            if !is_valid_pkg_name(n) : error("Please provide a package alias because the default is not a valid package name: " + n)
+            if !is_valid_pkg_name(n) : error("Default alias '" + n + "' is not a valid package name", "Pass an explicit alias: vman install " + pkg.name + " <version> <alias>")
             name = n
         }
 
@@ -151,7 +131,7 @@ class Project {
         let exists = deps.has(name)
         let dep = deps.get(name)
         if exists {
-            if dep.get("src").string != pkg.name : error("Failed to add package to config. Name already used: " + name)
+            if dep.get("src").string != pkg.name : error("Dependency alias '" + name + "' is already used by " + dep.get("src").string, "Pass a different alias or remove the existing dependency first")
         }
 
         dep = dep.remove("installed").remove("installed_hash").remove("update")
@@ -171,10 +151,10 @@ class Project {
         deps = deps.set(name, dep)
         this.config = this.config.set("dependencies", deps)
 
-        fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+        write_json_file(this.config_path, this.config)
     }
 
-    fn install_packages(depth: uint (0), announce: bool (true)) {
+    fn install_packages(depth: uint (0), announce: bool (true), frozen: bool (false)) {
         let deps = this.config.get("dependencies").object
 
         if deps.length == 0 {
@@ -185,13 +165,21 @@ class Project {
         // that a cycle in the configs cannot run forever
         if depth > MAX_DEPENDENCY_DEPTH : error("Dependencies nest deeper than %{MAX_DEPENDENCY_DEPTH} levels, which looks like a cycle: " + this.config_path)
 
+        if frozen {
+            let problems = validate_frozen_dependencies(this.config)
+            if problems.length > 0 {
+                each problems.range(0, problems.length - 1) as problem : warn(problem)
+                error(problems[problems.length - 1], "Run 'vman install' to resolve and lock dependencies in valk.json")
+            }
+        }
+
         each deps.keys() as key {
             let dep = deps.get(key) ! {
                 continue
             }
 
             let name = dep.get("src").string
-            if name.is_empty() : error("Valk.json invalid dependency 'src'")
+            if name.is_empty() : error("Invalid dependency '%key' in valk.json: missing 'src'")
 
             // Local directory dependencies are always present
             if fs.is_dir(name) : continue
@@ -200,18 +188,20 @@ class Project {
             let current = dep.get("current").string
             let hash = dep.get("current_hash").string
             if !current.is_empty() && !hash.is_empty() {
-                installed = Version.new(current) ! error("Valk.json invalid version: " + current)
+                installed = Version.new(current) ! error("Invalid 'current' version '%current' for dependency '%key' in valk.json")
             }
 
             let pkg = resolve_dep_pkg(this, name, installed, hash, dep.get("version").string)
 
-            // Set/update the resolved version & hash in the config
-            dep = dep.set("current", json.new_string(pkg.ver.name))
-            dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
-            // Every registry dependency has a mask; missing masks default to all versions
-            let ver_mask = dep.get("version").string
-            if ver_mask.is_empty() : dep = dep.set("version", json.new_string(Mask.compatible_with(pkg.ver).name))
-            deps.set(key, dep)
+            if !frozen {
+                // Set/update the resolved version & hash in the config
+                dep = dep.set("current", json.new_string(pkg.ver.name))
+                dep = dep.set("current_hash", json.new_string(pkg.ver.hash))
+                // Every registry dependency has a mask; missing masks default to compatible patch releases
+                let ver_mask = dep.get("version").string
+                if ver_mask.is_empty() : dep = dep.set("version", json.new_string(Mask.compatible_with(pkg.ver).name))
+                deps.set(key, dep)
+            }
 
             // Install if the package-dir is missing
             if !pkg.installed() {
@@ -222,12 +212,14 @@ class Project {
             this.packages.set(pkg.id, pkg)
         }
 
-        this.config = this.config.set("dependencies", deps)
-        fs.write(this.config_path, this.config.encode(true)) ! error("Failed to save file: " + this.config_path)
+        if !frozen {
+            this.config = this.config.set("dependencies", deps)
+            write_json_file(this.config_path, this.config)
+        }
 
         // A dependency may itself depend on packages; they are installed next to it rather than
         // inside it, so that a package two dependencies share is one package to the compiler
-        this.install_nested_dependencies()
+        this.install_nested_dependencies(frozen)
 
         let valk = this.valk_version()
         if isset(valk) : this.check_dep_requirements(valk)
@@ -241,17 +233,17 @@ class Project {
     // The compiler loads a directory once, whoever asks for it, so a package that two of them
     // depend on must resolve to one directory: a version already in `vendor` that fits is
     // reused, and only a requirement nothing satisfies installs another version.
-    fn install_nested_dependencies() {
+    fn install_nested_dependencies(frozen: bool (false)) {
         let round: uint = 0
         while round++ < MAX_DEPENDENCY_DEPTH {
-            if !this.hoist_round() : return
+            if !this.hoist_round(frozen) : return
         }
         error("Dependencies nest deeper than %{MAX_DEPENDENCY_DEPTH} levels, which looks like a cycle")
     }
 
     // One pass over every installed package. Returns whether anything changed, so that a
     // package pulled in by this pass gets a pass of its own.
-    fn hoist_round() bool {
+    fn hoist_round(frozen: bool (false)) bool {
         let changed = false
         each this.installed_package_dirs() as pkg_dir {
             let config_path = fs.add(pkg_dir, "valk.json")
@@ -275,7 +267,13 @@ class Project {
                 let version = this.vendored_version_for(assoc, mask)
                 if !isset(version) {
                     // Nothing here fits, so it is installed next to the packages that need it
-                    let pkg = Package.init(this, src, mask)
+                    let installed: ?Version = null
+                    let current = dep.get("current").string
+                    let hash = dep.get("current_hash").string
+                    if frozen && !current.is_empty() && !hash.is_empty() {
+                        installed = Version.new(current) !? null
+                    }
+                    let pkg = resolve_dep_pkg(this, src, installed, hash, mask)
                     if !pkg.installed() {
                         println("> Installing: %src | %{pkg.ver.name}")
                         pkg.install()
@@ -293,7 +291,7 @@ class Project {
 
             if rewritten {
                 conf = conf.set("dependencies", deps)
-                fs.write(config_path, conf.encode(true)) ! error("Failed to save file: " + config_path)
+                write_json_file(config_path, conf)
             }
         }
         return changed
@@ -329,64 +327,194 @@ class Project {
         return found.name
     }
 
-    fn clean_vendor() {
+    // Collects every `<assoc>/<version>` reachable from root `valk.json`, including
+    // hoisted transitive dependencies referenced via `../../<assoc>/<version>`.
+    fn reachable_vendor_versions() Map[Array[Version]] {
+        let used = Map[Array[Version]]{}
+        let queue = Array[String]{}
+        let visited = Map[bool]{}
+        let vendor_dir = this.vendor_dir
+
         let deps = this.config.get("dependencies").object
+        each deps.keys() as key {
+            let dep = deps.get(key) ! continue
+            let src = dep.get("src").string
+            if src.is_empty() || fs.is_dir(src) : continue
+            let current = dep.get("current").string
+            if current.is_empty() : continue
+            let ver = Version.new(current) ! error("Invalid 'current' version '%current' for dependency '%key' in valk.json")
+            record_vendor_version(used, visited, queue, vendor_dir, Source.new(src).assoc_name(), ver)
+        }
 
-        // Directories that are used by the config and must be preserved
+        let idx: uint = 0
+        while idx < queue.length {
+            let dir = queue[idx++]
+            let str = fs.read(fs.add(dir, "valk.json")) ! continue
+            let conf = json.decode(str) ! continue
+            let nested = conf.get("dependencies").object
+            each nested.keys() as key {
+                let dep = nested.get(key) ! continue
+                let src = dep.get("src").string
+                if !src.starts_with("../../") : continue
+                let rest = src.range("../../".length, src.length - "../../".length).rtrim("/")
+                let parts = rest.split("/")
+                if parts.length != 2 : continue
+                let assoc = parts.get(0) ! continue
+                let ver_str = parts.get(1) ! continue
+                let ver = Version.new(ver_str) ! continue
+                record_vendor_version(used, visited, queue, vendor_dir, assoc, ver)
+            }
+        }
+        return used
+    }
+
+    fn clean_vendor() uint {
+        if !fs.is_dir(this.vendor_dir) : return 0
+
+        let used_map = this.reachable_vendor_versions()
         let protected = Array[String]{}
+        let removed: uint = 0
 
-        // Map vendored package dir by its assoc name, used version
-        let pkg_dirs = fs.files_in(this.vendor_dir, false, false, true) ! error("Failed to read directory")
+        let pkg_dirs = fs.files_in(this.vendor_dir, false, false, true) ! error("Failed to read directory: " + this.vendor_dir)
 
         each pkg_dirs as pkg_dir {
             let pkg_name = fs.basename(pkg_dir)
-
-            // Collect every version current in the config that maps to this package
-                let used = Array[Version]{}
-            each deps.keys() as key {
-                let dep = deps.get(key) ! {
-                    continue
-                }
-                let src = dep.get("src").string
-                if src.is_empty() : continue
-                // Local directory dependencies have no vendored package dir
-                if fs.is_dir(src) : continue
-                if Source.new(src).assoc_name() == pkg_name {
-                    let current = dep.get("current").string
-                    if !current.is_empty() {
-                        used.append(Version.new(current) ! error("Valk.json invalid version: " + current))
-                    }
-                }
-            }
+            let used = used_map.get(pkg_name) !? Array[Version]{}
 
             // No dependency uses this package -> delete the whole directory
             if used.length == 0 {
                 fs.delete_all(pkg_dir) ! error("Failed to delete: " + pkg_dir)
+                removed++
                 continue
             }
 
             // Delete version sub-directories that aren't a used version
-            let versions = fs.files_in(pkg_dir, false, false, true) ! error("Failed to read directory")
+            let versions = fs.files_in(pkg_dir, false, false, true) ! error("Failed to read directory: " + pkg_dir)
             each versions as ver_dir {
                 let version = Version.new(fs.basename(ver_dir)) ! {
                     fs.delete_all(ver_dir) ! error("Failed to delete: " + ver_dir)
+                    removed++
                     continue
                 }
                 if used.contains(version) {
                     protected.append(ver_dir)
                 } else {
                     fs.delete_all(ver_dir) ! error("Failed to delete: " + ver_dir)
+                    removed++
                 }
             }
         }
 
         // Delete every empty folder under ./vendor that isn't used by the config
         remove_empty_dirs(this.vendor_dir, protected)
+        return removed
     }
 }
 
+fn record_vendor_version(used: Map[Array[Version]], visited: Map[bool], queue: Array[String], vendor_dir: String, assoc: String, ver: Version) {
+    let id = assoc + "/" + ver.name
+    if visited.has(id) : return
+    visited.set(id, true)
+    let list = used.get(assoc) !? Array[Version]{}
+    if !list.contains(ver) : list.append(ver)
+    used.set(assoc, list)
+    queue.append(fs.add(fs.add(vendor_dir, assoc), ver.name))
+}
+
+fn init_config_at(path: String, name: ?String, use_ver: ?String, min_valk: ?String, active_valk: ?Version, announce: bool) {
+    if isset(name) && !is_valid_pkg_name(name) {
+        error("Invalid package name '" + name + "'", "Package names must start with a letter or '_' and contain only letters, digits or '_'")
+    }
+    let chosen_use: ?Version = null
+    if isset(use_ver) {
+        chosen_use = Version.new(use_ver) ! error("Invalid '--use' version: '" + use_ver + "'", "Expected a version such as 0.8.10")
+    }
+    let chosen_min: ?Version = null
+    if isset(min_valk) {
+        chosen_min = Version.new(min_valk) ! error("Invalid '--min' version: '" + min_valk + "'", "Expected a version such as 0.8.10")
+    }
+
+    let exists = fs.exists(path)
+    let config: json.Value = json.new_object()
+    let changed = !exists
+
+    if exists {
+        let data = fs.read(path) ! error("Failed to read: " + path)
+        config = json.decode(data) ! error("Invalid json syntax in '" + path + "'")
+    }
+
+    if isset(name) {
+        if config.get("name").string != name {
+            config = config.set("name", json.new_string(name))
+            changed = true
+        }
+    }
+
+    if isset(chosen_use) {
+        if config.get("use").string != chosen_use.name {
+            config = config.set("use", json.new_string(chosen_use.name))
+            changed = true
+        }
+    } else if !config.has("use") && isset(active_valk) {
+        config = config.set("use", json.new_string(active_valk.name))
+        changed = true
+    }
+
+    if isset(chosen_min) {
+        let require = config.has("require") ? config.get("require") : json.new_object()
+        let valk_req = require.has("valk") ? require.get("valk") : json.new_object()
+        if valk_req.get("min").string != chosen_min.name {
+            valk_req = valk_req.set("min", json.new_string(chosen_min.name))
+            require = require.set("valk", valk_req)
+            config = config.set("require", require)
+            changed = true
+        }
+    }
+
+    if !changed {
+        if announce : println("# Project already has a 'valk.json' config")
+        return
+    }
+
+    write_json_file(path, config)
+    if announce {
+        if exists : println("# Updated valk.json")
+        else : println("# Created valk.json")
+    }
+}
+
+// Validates that every registry dependency in `config` has pinned `current` and `current_hash`
+fn validate_frozen_dependencies(config: json.Value) Array[String] {
+    let problems = Array[String]{}
+    let deps = config.get("dependencies").object
+    each deps.keys().sorted() as key {
+        let dep = deps.get(key) ! continue
+        let src = dep.get("src").string
+        if src.is_empty() {
+            problems.append("Dependency '" + key + "' is missing 'src'")
+            continue
+        }
+        if src.starts_with(".") || fs.is_dir(src) : continue
+        let current = dep.get("current").string
+        let hash = dep.get("current_hash").string
+        if current.is_empty() {
+            problems.append("Dependency '" + key + "' is not pinned (missing 'current')")
+        } else {
+            Version.new(current) ! problems.append("Dependency '" + key + "' has invalid 'current' version '" + current + "'")
+        }
+        if hash.is_empty() {
+            problems.append("Dependency '" + key + "' is missing 'current_hash'")
+        }
+        let mask = dep.get("version").string
+        if !mask.is_empty() {
+            Mask.new(mask) ! problems.append("Dependency '" + key + "' has invalid 'version' mask '" + mask + "'")
+        }
+    }
+    return problems
+}
+
 fn remove_empty_dirs(dir: String, protected: Array[String]) {
-    let subdirs = fs.files_in(dir, false, false, true) ! error("Failed to read directory")
+    let subdirs = fs.files_in(dir, false, false, true) ! error("Failed to read directory: " + dir)
     each subdirs as sub {
         if protected.contains(sub) : continue
         remove_empty_dirs(sub, protected)

@@ -7,6 +7,7 @@ use valk.core
 // `-abc` for switches written together, `--` for "everything after this is a value", and a `-`
 // on its own is a value (which many tools read as standard input).
 fn parse_command_line(root: Command, args: Array[String]) Context !Error {
+    root.check_globals() !>
     let command = root
     let index: uint = 1 // the first item is the program itself
     let program = args.get(0) !? root.name
@@ -36,7 +37,7 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
             only_values = true
             continue
         }
-        if word == "--help" || word == "-h" {
+        if word == "--help" {
             context.help_asked = true
             continue
         }
@@ -73,20 +74,43 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
             continue
         }
 
+        // A subcommand may follow the options of its parent: `tool -v remote add`
+        if positional.length == 0 && word.length > 0 && word[0] != '-' {
+            let sub = command.find(word)
+            if isset(sub) {
+                command = sub
+                context.command = sub
+                continue
+            }
+        }
+
+        // A negative number is a value, unless the command uses digits as letters
+        if is_negative_number(word) && !uses_digit_letters(command) {
+            positional.append(word)
+            continue
+        }
+
         if word.length > 1 && word[0] == '-' {
             // A run of single letter switches, with an option and its value allowed at the end
             let letters = word.range(1, word.length - 1)
             let at: uint = 0
             while at < letters.length {
-                let letter = letters.range(at, 1)
-                at++
+                let letter = letters.range(at, char_bytes(letters[at]))
+                at += letter.length
                 let flag = command.find_short_flag(letter)
                 if isset(flag) {
                     context.given_flags.set(flag.long, true)
                     continue
                 }
                 let option = command.find_short_option(letter)
-                if !isset(option) : unknown_flag(command, "-" + letter)
+                if !isset(option) {
+                    // `-h` asks for help, unless the command uses the letter itself
+                    if letter == "h" {
+                        context.help_asked = true
+                        continue
+                    }
+                    unknown_flag(command, "-" + letter)
+                }
                 // The rest of the run is the value, or the next word is
                 let value = ""
                 if at < letters.length {
@@ -108,10 +132,35 @@ fn parse_command_line(root: Command, args: Array[String]) Context !Error {
     // Help and version are answered without asking for anything else
     if context.help_asked || context.version_asked : return context
 
-    read_environment(context, command)
+    read_environment(context, command) !>
     fill_arguments(context, command, positional) !>
     check_required(context, command) !>
     return context
+}
+
+// `-5`, `-0.5`, `-1e3`
+fn is_negative_number(word: String) bool {
+    if word.length < 2 || word[0] != '-' || !word[1].is_number() : return false
+    word.to_float() ! return false
+    return true
+}
+
+fn uses_digit_letters(command: Command) bool {
+    each command.all_flags() as flag {
+        if flag.short.length == 1 && flag.short[0].is_number() : return true
+    }
+    each command.all_options() as option {
+        if option.short.length == 1 && option.short[0].is_number() : return true
+    }
+    return false
+}
+
+// The number of bytes of the UTF-8 character that starts with `lead`
+fn char_bytes(lead: u8) uint {
+    if lead >= 0xF0 : return 4
+    if lead >= 0xE0 : return 3
+    if lead >= 0xC0 : return 2
+    return 1
 }
 
 // Adds a value to an option, refusing a second one unless the option may be repeated
@@ -131,16 +180,22 @@ fn add_option_value(context: Context, command: Command, option: Option, value: S
 }
 
 // Options and switches that were not given may still come from the environment
-fn read_environment(context: Context, command: Command) {
-    each command.options as option {
+fn read_environment(context: Context, command: Command) !Error {
+    each command.all_options() as option {
         if option.env.length == 0 : continue
         if context.has(option.long) : continue
         let value = core.getenv(option.env) ! continue
         if value.length == 0 : continue
+        if option.choices.length > 0 && !option.choices.contains(value) {
+            throw .invalid_value {
+                message: option.env + " takes one of " + option.choices.join(", ") + ", not '" + value + "'"
+                command: command.path()
+            }
+        }
         let values = Array[String]{ value }
         context.given_options.set(option.long, values)
     }
-    each command.flags as flag {
+    each command.all_flags() as flag {
         if flag.env.length == 0 : continue
         if context.flag(flag.long) : continue
         let value = core.getenv(flag.env) ! continue
@@ -150,16 +205,27 @@ fn read_environment(context: Context, command: Command) {
     }
 }
 
-// Hands the values that were not written behind a name to the arguments, in order
+// Hands the values that were not written behind a name to the arguments, in order. A required
+// argument they leave empty takes the words after `--`, for values that start with a `-`.
 fn fill_arguments(context: Context, command: Command, positional: Array[String]) !Error {
     let at: uint = 0
     each command.arguments as argument {
+        let from_rest = at >= positional.length && argument.required && context.rest.length > 0
         if argument.variadic {
+            if from_rest {
+                context.given_arguments.set(argument.name, context.rest.copy())
+                context.rest.clear()
+                continue
+            }
             let rest = Array[String]{}
             while at < positional.length {
                 rest.append(positional.get(at++) !? "")
             }
             context.given_arguments.set(argument.name, rest)
+            continue
+        }
+        if from_rest {
+            context.given_arguments.set(argument.name, Array[String]{ context.rest.pop_first() !? "" })
             continue
         }
         if at >= positional.length : break
@@ -176,7 +242,7 @@ fn fill_arguments(context: Context, command: Command, positional: Array[String])
 
 // Everything the command says it needs must be there
 fn check_required(context: Context, command: Command) !Error {
-    each command.options as option {
+    each command.all_options() as option {
         if !option.required : continue
         if context.has(option.long) : continue
         if option.default.length > 0 : continue
@@ -193,8 +259,8 @@ fn check_required(context: Context, command: Command) !Error {
 
 fn unknown_flag(command: Command, written: String) !Error $throw {
     let names = Array[String]{}
-    each command.flags as flag : names.append("--" + flag.long)
-    each command.options as option : names.append("--" + option.long)
+    each command.all_flags() as flag : names.append("--" + flag.long)
+    each command.all_options() as option : names.append("--" + option.long)
     let suggestion = closest_name(written, names)
     let message = "Unknown option '" + written + "'"
     if suggestion.length > 0 : message += ". Did you mean '" + suggestion + "'?"

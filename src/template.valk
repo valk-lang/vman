@@ -1,6 +1,5 @@
 use valk.fs
 use valk.json
-use valk.ansi
 
 // Starting code that `vman template` writes into a project. Every template is a directory
 // under templates/, with a template.json next to the files it writes.
@@ -169,7 +168,7 @@ fn cmd_template_export(name: String, force: bool) {
     let dependencies = template.dependencies
     if isset(dependencies) && dependencies.object.length > 0 : conf = conf.set("dependencies", dependencies)
     let conf_path = fs.add(target, "template.json")
-    fs.write(conf_path, conf.encode(true)) ! error("Failed to write: " + conf_path)
+    write_json_file(conf_path, conf)
     println("# Wrote: " + conf_path)
 
     println("")
@@ -241,7 +240,7 @@ fn merge_into_config(config: json.Value, project_name: String) {
         changed = true
     }
     if !changed : return
-    fs.write(path, current.encode(true)) ! error("Failed to save file: " + path)
+    write_json_file(path, current)
 }
 
 // Where the files go: the directory that was asked for, or this one when there is nothing

@@ -3,7 +3,7 @@ vc ?= valk
 test:
 	$(vc) build ./tests --test --run
 lint:
-	$(vc) build ./src --lint
+	$(vc) build ./src --lint --deny-warnings
 docs:
 	@mkdir -p docs
 	$(vc) doc . -o docs/api.md --markdown --no-private

@@ -161,3 +161,14 @@ test "The scripts a shell is given" {
     assert(dashed.completion_script(cli.Shell.bash).contains("_my_tool_complete"))
     assert(dashed.completion_script(cli.Shell.bash).contains("complete -o default -F _my_tool_complete my-tool"))
 }
+
+test "Completing global options under a subcommand" {
+    let app = completing_app()
+    app.root.flag("verbose", "v", "Say more", "", true)
+    let sub_options = app.complete(line(.{ "remote", "add", "--" }))
+    assert(sub_options.contains("--verbose"))
+    assert(sub_options.contains("--branch"))
+    // Options that are not global stay with their command
+    assert(!sub_options.contains("--quiet"))
+    assert(app.complete(line(.{ "add", "-" })).contains("-v"))
+}

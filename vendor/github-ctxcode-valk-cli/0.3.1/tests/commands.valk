@@ -52,6 +52,16 @@ test "Subcommands" {
     assert(app.run(args(.{ "remote", "add", "origin", "url" })) == 0)
     assert(app.run(args(.{ "remote", "add", "upstream", "url" })) == 1)
 
+    // A subcommand after the options of its parent
+    let quiet = app.parse(args(.{ "-q", "remote", "add", "origin", "url" })) ! {
+        println(E.message)
+        assert(false)
+        return
+    }
+    assert(quiet.command.path() == "vcs remote add")
+    assert(quiet.flag("quiet"))
+    assert(quiet.arg("name") == "origin")
+
     // A command that does not exist, with the nearest one offered
     app.parse(args(.{ "remove", "x" })) ! {
         assert(error_is(E.code, unknown_command))
@@ -140,4 +150,82 @@ synctest "Environment variables" {
     let without = app.parse(args(.{})) ! { assert(false) return }
     assert(without.value("token") == "")
     assert(!without.flag("debug"))
+}
+
+synctest "An environment variable is held to the choices" {
+    let app = cli.App.new("tool", "", "")
+    app.root.option("mode", "m", "How to run", "fast", "mode", "TOOL_TEST_MODE", false, false, .{ "fast", "slow" })
+
+    core.setenv("TOOL_TEST_MODE", "sideways") ! { assert(false) return }
+    let refused = false
+    app.parse(args(.{})) ! {
+        refused = error_is(E.code, invalid_value) && E.message.contains("TOOL_TEST_MODE")
+    }
+    assert(refused)
+    // What is typed wins, so the environment is not looked at
+    assert((app.parse(args(.{ "--mode", "slow" })) ! { assert(false) return }).value("mode") == "slow")
+    core.unsetenv("TOOL_TEST_MODE") ! { assert(false) return }
+}
+
+synctest "Help text lines up names that are not ASCII" {
+    cli.colors = false
+    let app = cli.App.new("tool", "", "")
+    app.root.option("größe", "g", "Size", "", "wert")
+    app.root.option("size", "s", "Size", "", "wert")
+    app.root.command(cli.Command.new("über", "Over"))
+    app.root.command(cli.Command.new("under", "Under"))
+    let text = app.help()
+    assert(text.contains("  -g, --größe <wert>  Size\n"))
+    assert(text.contains("  -s, --size <wert>   Size\n"))
+    assert(text.contains("  über   Over\n"))
+
+    // A command that takes `-h` itself lists help without the letter
+    let db = cli.App.new("db", "", "")
+    db.root.flag("host", "h", "The host")
+    assert(db.help().contains("      --help"))
+}
+
+fn with_globals() cli.App {
+    let app = git_like()
+    app.root.flag("verbose", "v", "Say more", "", true)
+    app.root.option("config", "c", "The config file", "vcs.toml", "file", "VCS_TEST_CONFIG", false, false, .{}, true)
+    return app
+}
+
+test "Global options are accepted by the commands under their command" {
+    let app = with_globals()
+
+    // After the subcommand, and after a command under it
+    let ctx = app.parse(args(.{ "remote", "-v", "add", "origin", "url", "--config", "x.toml" })) ! {
+        println(E.message)
+        assert(false)
+        return
+    }
+    assert(ctx.command.path() == "vcs remote add")
+    assert(ctx.flag("verbose"))
+    assert(ctx.value("config") == "x.toml")
+    assert(ctx.arg("name") == "origin")
+
+    // Before it, as before; the default reaches the subcommand as well
+    let before = app.parse(args(.{ "--verbose", "add", "a.txt" })) ! { println(E.message) assert(false) return }
+    assert(before.flag("verbose") && before.value("config") == "vcs.toml")
+
+    // A switch that is not global stays with its own command
+    let refused = false
+    app.parse(args(.{ "add", "-q", "a.txt" })) ! { refused = error_is(E.code, unknown_flag) }
+    assert(refused)
+
+    // The subcommand's help lists them apart from its own options
+    let help = cli.help_text(app.root.find("add") ?? cli.Command.new("?"))
+    assert(help.contains("Global options:") && help.contains("-v, --verbose") && help.contains("--config <file>"))
+    assert(!cli.help_text(app.root).contains("Global options:"))
+}
+
+test "A command cannot redeclare a global option" {
+    let app = with_globals()
+    let add = app.root.find("add") ?? cli.Command.new("?")
+    add.flag("version-all", "v", "Clashes with -v")
+    let message = ""
+    app.parse(args(.{ "add", "a.txt" })) ! { message = E.message }
+    assert(message == "'vcs add' declares -v, which the global option --verbose already uses")
 }

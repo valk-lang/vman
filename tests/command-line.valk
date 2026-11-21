@@ -38,6 +38,22 @@ test "CLI: the command line is read into commands and arguments" {
         assert(parsed.flag("ignore-min"))
     }
 
+    // --frozen locks installs to valk.json pins
+    let frozen = app.parse(.{ "vman", "install", "--frozen" }) ! { assert(false) return }
+    assert(frozen.flag("frozen"))
+
+    // outdated accepts --json
+    let outdated = app.parse(.{ "vman", "outdated", "--json" }) ! { assert(false) return }
+    assert(outdated.command.name == "outdated")
+    assert(outdated.flag("json"))
+
+    // init accepts --name, --use and --min
+    let init = app.parse(.{ "vman", "init", "--name", "demo", "--use", "0.8.10", "--min", "0.8.0" }) ! { assert(false) return }
+    assert(init.command.name == "init")
+    assert(init.value("name") == "demo")
+    assert(init.value("use") == "0.8.10")
+    assert(init.value("min") == "0.8.0")
+
     // The ones that need an argument say so instead of doing nothing
     app.parse(.{ "vman", "remove" }) ! {
         assert(error_is(E.code, missing_argument))
@@ -58,6 +74,7 @@ test "CLI: what the shells are told to offer" {
 
     let commands = app.complete(.{ "vman", "" })
     assert(commands.contains("install"))
+    assert(commands.contains("outdated"))
     assert(commands.contains("use"))
     assert(commands.contains("completion"))
 
@@ -68,9 +85,11 @@ test "CLI: what the shells are told to offer" {
 
     // `vman clean <tab>` offers what can be cleaned
     let clean = app.complete(.{ "vman", "clean", "" })
-    assert(clean.length == 3)
+    assert(clean.length == 4)
     assert(clean.contains("packages"))
+    assert(clean.contains("cache"))
     assert(clean.contains("repos"))
+    assert(clean.contains("all"))
 
     // And the scripts are the ones the shells expect
     assert(app.completion_script(cli.Shell.bash).contains("complete -o default -F _vman_complete vman"))

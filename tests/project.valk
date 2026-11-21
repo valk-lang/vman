@@ -216,3 +216,122 @@ test "Project: a warning when the valk in use is older than the project's" {
     assert(!isset(vman.active_valk_warning("0.7.7", null)))
     assert(!isset(vman.active_valk_warning("latest", must_version("0.7.6"))))
 }
+
+synctest "Project: init creates and updates valk.json with flags" {
+    let root = make_dirs((fs.cwd() !? "."), .{ "debug", "init-test" })
+    fs.delete_all(root) _
+    make_dirs((fs.cwd() !? "."), .{ "debug", "init-test" })
+    defer fs.delete_all(root) _
+
+    let path = fs.add(root, "valk.json")
+    vman.init_config_at(path, "my_pkg", "v0.8.10", "0.8.0", must_version("0.8.1"), false)
+
+    let conf: json.Value = json.decode(fs.read(path) !? "") !? json.new_object()
+    assert(conf.get("name").string == "my_pkg")
+    assert(conf.get("use").string == "0.8.10")
+    assert(conf.get("require").get("valk").get("min").string == "0.8.0")
+
+    // Re-running with existing config preserves fields and only updates passed flags
+    conf = conf.set("dependencies", json.new_object())
+    fs.write(path, conf.encode(true)) ! assert(false)
+    vman.init_config_at(path, null, null, "0.8.5", must_version("0.8.10"), false)
+
+    let updated: json.Value = json.decode(fs.read(path) !? "") !? json.new_object()
+    assert(updated.get("name").string == "my_pkg")
+    assert(updated.get("use").string == "0.8.10")
+    assert(updated.get("require").get("valk").get("min").string == "0.8.5")
+    assert(updated.has("dependencies"))
+
+    // Without explicit --use, falls back to active valk version
+    let path2 = fs.add(root, "valk2.json")
+    vman.init_config_at(path2, null, null, null, must_version("0.8.10"), false)
+    let conf2: json.Value = json.decode(fs.read(path2) !? "") !? json.new_object()
+    assert(conf2.get("use").string == "0.8.10")
+    assert(!conf2.has("name"))
+    assert(!conf2.has("require"))
+}
+
+test "Project: validates frozen dependencies" {
+    let valid = json.decode("{\"dependencies\":{\"cli\":{\"src\":\"github.com/ctxcode/valk-cli\",\"version\":\"0.3.x\",\"current\":\"0.3.1\",\"current_hash\":\"abc123\"},\"local\":{\"src\":\"../local\"}}}") !? json.new_object()
+    assert(vman.validate_frozen_dependencies(valid).length == 0)
+
+    let broken = json.decode("{\"dependencies\":{\"unpinned\":{\"src\":\"github.com/a/b\",\"version\":\"1.x\"},\"bad_ver\":{\"src\":\"github.com/a/c\",\"current\":\"nope\",\"current_hash\":\"abc\",\"version\":\"bad\"},\"no_src\":{}}}") !? json.new_object()
+    let problems = vman.validate_frozen_dependencies(broken)
+    assert(problems.length == 5)
+    assert(problems.join("\n").contains("unpinned"))
+    assert(problems.join("\n").contains("bad_ver"))
+    assert(problems.join("\n").contains("no_src"))
+}
+
+synctest "Project: frozen install does not modify valk.json" {
+    let root = make_dirs((fs.cwd() !? "."), .{ "debug", "frozen-install-test" })
+    fs.delete_all(root) _
+    let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "frozen-install-test", "vendor" })
+    defer fs.delete_all(root) _
+
+    make_dirs(vendor, .{ "github-valk-lang-pkg-example", "1.2.3" })
+    let raw = "{\"dependencies\":{\"example\":{\"src\":\"github.com/valk-lang/pkg-example\",\"current\":\"1.2.3\",\"current_hash\":\"0123456789abcdef\"}}}"
+    let config_path = fs.add(root, "valk.json")
+    fs.write(config_path, raw) ! assert(false)
+
+    let conf: json.Value = json.decode(raw) !? json.new_object()
+    let project = vman.Project {
+        dir: root
+        vendor_dir: vendor
+        config_path: config_path
+        config: conf
+    }
+    project.install_packages(0, false, true)
+
+    // Frozen install must leave valk.json byte-for-byte untouched
+    assert((fs.read(config_path) !? "") == raw)
+}
+
+synctest "Project: clean_vendor preserves hoisted transitive dependencies and removes unused ones" {
+    let root = make_dirs((fs.cwd() !? "."), .{ "debug", "clean-vendor-test" })
+    fs.delete_all(root) _
+    let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "clean-vendor-test", "vendor" })
+    defer fs.delete_all(root) _
+
+    // Root depends on pkg-a 1.0.0; pkg-a depends on hoisted dep 0.1.4; dep depends on hoisted leaf 0.2.0 (and cycle back to pkg-a)
+    let pkg_a = make_dirs(vendor, .{ "github-ctxcode-pkg-a", "1.0.0" })
+    write_config(pkg_a, "{\"name\":\"pkg_a\",\"dependencies\":{\"dep\":{\"src\":\"../../github-ctxcode-dep/0.1.4\"}}}")
+
+    let dep_used = make_dirs(vendor, .{ "github-ctxcode-dep", "0.1.4" })
+    write_config(dep_used, "{\"name\":\"dep\",\"dependencies\":{\"leaf\":{\"src\":\"../../github-ctxcode-leaf/0.2.0\"}}}")
+
+    let leaf_used = make_dirs(vendor, .{ "github-ctxcode-leaf", "0.2.0" })
+    write_config(leaf_used, "{\"name\":\"leaf\",\"dependencies\":{\"back\":{\"src\":\"../../github-ctxcode-pkg-a/1.0.0\"}}}")
+
+    // Unused version of dep and unused unrelated package
+    let dep_unused = make_dirs(vendor, .{ "github-ctxcode-dep", "0.2.0" })
+    write_config(dep_unused, "{\"name\":\"dep\"}")
+    let orphan = make_dirs(vendor, .{ "github-ctxcode-orphan", "1.0.0" })
+    write_config(orphan, "{\"name\":\"orphan\"}")
+
+    let config: json.Value = json.decode("{\"dependencies\":{\"pkg_a\":{\"src\":\"github.com/ctxcode/pkg-a\",\"current\":\"1.0.0\",\"current_hash\":\"abc\"}}}") !? json.new_object()
+    let project = vman.Project {
+        dir: root
+        vendor_dir: vendor
+        config_path: fs.add(root, "valk.json")
+        config: config
+    }
+
+    let removed = project.clean_vendor()
+    assert(removed == 2)
+    assert(fs.is_dir(pkg_a))
+    assert(fs.is_dir(dep_used))
+    assert(fs.is_dir(leaf_used))
+    assert(!fs.is_dir(dep_unused))
+    assert(!fs.is_dir(fs.add(vendor, "github-ctxcode-orphan")))
+
+    // Second clean is a no-op
+    assert(project.clean_vendor() == 0)
+}
+
+test "Msg: extracts relevant git error lines" {
+    assert(vman.git_error_detail("Cloning into 'x'...\nfatal: repository 'https://example.com/a.git/' not found\n") == "fatal: repository 'https://example.com/a.git/' not found")
+    assert(vman.git_error_detail("remote: Not Found\nfatal: could not read Username\nerror: extra\n") == "remote: Not Found; fatal: could not read Username")
+    assert(vman.git_error_detail("some plain error\r\n") == "some plain error")
+    assert(vman.git_error_detail("   \n\n  ") == "")
+}

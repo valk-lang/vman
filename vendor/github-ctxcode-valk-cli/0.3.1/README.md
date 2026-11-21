@@ -58,7 +58,9 @@ The forms every unix tool takes:
 
 Values that are not written behind a name are handed to the arguments in order, wherever they
 appear on the line: `tool one.txt --verbose two.txt` gives `one.txt` and `two.txt` to the
-arguments and turns the switch on.
+arguments and turns the switch on. A negative number such as `-5` is a value too, unless the
+command uses digits as letters. A value that starts with a `-` goes after `--`: words there fill
+the required arguments the others left empty, and the rest is handed on in `ctx.rest`.
 
 ## Options, switches and arguments
 
@@ -116,10 +118,22 @@ app.root.command(remote)
 `vcs remote add --help` prints its help. A command with subcommands and no handler of its own
 prints its help and exits 1, which is what a bare `vcs remote` should do.
 
+An option that every command below should accept is marked `global`, the last parameter of
+`flag` and `option`:
+
+```rust
+app.root.flag("verbose", "v", "Print more", "", true)  // global
+```
+
+`vcs -v remote add ...` and `vcs remote add -v ...` then both work, and the handler of
+`remote add` reads it with `ctx.flag("verbose")`. The help of a subcommand lists these under
+"Global options". A command below may not declare the same name or letter again.
+
 ## Help and errors
 
 `--help` and `-h` print the help of the command they follow; `--version` prints the version.
-Both are added for you. The help of a command lists its commands, arguments and options with
+Both are added for you; a command that declares `-h` itself, as a `--host` option might, keeps
+the letter, and help is then only `--help`. The help of a command lists its commands, arguments and options with
 their defaults, choices and environment variables.
 
 An error names what went wrong, and offers the nearest thing when something was mistyped:
@@ -134,7 +148,8 @@ Usage:
 Run 'greet --help' to see what it takes.
 ```
 
-Colours follow the terminal and are off when `NO_COLOR` is set; `cli.colors = false` turns them
+Colours follow the terminal: they are off when standard output is a pipe or a file, and when
+`NO_COLOR` is set; `cli.colors = false` turns them
 off by hand. `app.out` and `app.errors` are where the text goes, standard output and standard
 error by default, so a test can collect them in a `ByteBuffer`.
 

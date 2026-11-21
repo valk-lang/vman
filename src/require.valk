@@ -82,7 +82,7 @@ fn pick_version(name: String, versions: Array[Version], mask: Mask, valk: ?Versi
         if E.code == E.none || !isset(valk) : error("Package '%name' has no versions matching: " + mask.name)
         println("# Versions of '%name' matching '" + mask.name + "' (project uses valk " + valk.name + ")")
         print_version_table(versions.filter(fn(v: Version) bool { return mask.is_compat(v) }), valk, require_of)
-        if !ignore_min : error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk.name + "; " + IGNORE_MIN_HINT)
+        if !ignore_min : error("Package '%name' has no versions matching '" + mask.name + "' that support valk " + valk.name, IGNORE_MIN_HINT)
         let newest = select_version(versions, mask, null, require_of) ! error("Package '%name' has no versions matching: " + mask.name)
         warn("Package '%name' " + newest.name + " requires valk " + require_of(newest).str() + ", the project uses " + valk.name)
         return newest

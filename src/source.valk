@@ -1,5 +1,4 @@
 
-use valk.json
 use valk.core
 
 error SourceError (none)
@@ -46,8 +45,8 @@ class Source {
     versions: ?Array[Version] (null)
 
     static fn new(name: String) SELF {
-        if !name.starts_with("github.com/") : error("Unknown source: " + name + ", package names must be with 'github.com/'.")
-        if !is_valid_source_name(name) : error("Invalid github package name: " + name)
+        if !name.starts_with("github.com/") : error("Unknown package source '" + name + "'", "Expected 'github.com/<user>/<repo>'")
+        if !is_valid_source_name(name) : error("Invalid GitHub package name '" + name + "'", "Expected 'github.com/<user>/<repo>'")
 
         let project = name.range("github.com/".length, name.length - "github.com/".length)
         let split = project.split("/")
@@ -85,8 +84,13 @@ class Source {
         if isset(vv) : return vv
         let cmd = "git ls-remote --tags " + shell_quote(this.clone_url())
         let code, output = core.exec(cmd)
-        if code == 127 : error("Git is not installed")
-        if code != 0 : error("Package not found, or GitHub could not be reached: github.com/%{this.user_name}/%{this.repo_name}")
+        if code == 127 : error("Git is not installed", "Install git and make sure it is in your PATH")
+        if code != 0 {
+            let detail = git_error_detail(output)
+            let msg = "Failed to query package 'github.com/%{this.user_name}/%{this.repo_name}'"
+            if !detail.is_empty() : msg += ": " + detail
+            error(msg, "Check the package name and your network connection")
+        }
         let versions = versions_from_ls_remote(output)
         versions.sort()
         this.versions = versions

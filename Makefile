@@ -17,6 +17,10 @@ test:
 	$(vc) build ./tests -o $(TEST_BIN) $(DEFS) --test
 	./$(TEST_BIN)
 
+lint:
+	$(vc) build . --lint --deny-warnings $(DEFS)
+	$(vc) build ./tests --test --lint --deny-warnings $(DEFS)
+
 clean:
 	rm -f ./vman $(TEST_BIN)
 
@@ -66,5 +70,5 @@ dist-all: deps dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 d
 
 #
 
-.PHONY: vman win test clean test deps dist-all dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
+.PHONY: vman win test lint clean deps dist-all dist-linux-x64 dist-linux-arm64 dist-macos-x64 dist-macos-arm64 dist-win
 

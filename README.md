@@ -27,6 +27,7 @@ Commands:
   install      Install the packages of this project, or add one
   update       Update the packages to the newest versions they allow
   remove       Remove a package from this project
+  outdated     Check which project dependencies have newer versions
   versions     List the versions of a package, and the valk versions they need
   init         Write a valk.json for this project
   template     Write starting code into this project
@@ -48,7 +49,17 @@ Every command explains itself with `vman <command> -h`, for example:
 
 ```
 vman use -h
+vman init -h
 vman clean -h
+```
+
+### Common workflows
+
+```sh
+vman init --name my_pkg --min 0.8.10   # create or update valk.json
+vman install --frozen                  # reproducible CI install without modifying valk.json
+vman outdated                          # check for newer in-mask and latest releases (--json for scripts)
+vman clean all                         # clean unused vendor packages, cache and cloned repos
 ```
 
 ## Templates
@@ -110,7 +121,7 @@ A directory is all it takes: the files to write, optionally a `template.json` be
     "description": "How this template is listed",
     "config": { "name": "{{name}}" },
     "dependencies": {
-        "cli": { "src": "github.com/ctxcode/valk-cli", "version": "0.2.x" }
+        "cli": { "src": "github.com/ctxcode/valk-cli", "version": "0.3.x" }
     }
 }
 ```

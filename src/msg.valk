@@ -1,36 +1,76 @@
 
 use valk.ansi
 use valk.core
+use valk.io
 
-fn error(msg: String) $exit {
-    if ansi.supported() : println("❌ " + msg)
-    else : println("> Error: " + msg)
+fn eprintln(msg: String) {
+    io.stderr().write(msg + "\n") _
+}
+
+fn error(msg: String, hint: ?String (null)) $exit {
+    if use_stderr_color() : eprintln("error:".ansi.red(true) + " " + msg)
+    else : eprintln("error: " + msg)
+    if isset(hint) {
+        if use_stderr_color() : eprintln("hint:".ansi.cyan() + " " + hint)
+        else : eprintln("hint: " + hint)
+    }
     exit(1)
 }
 
 fn warn(msg: String) {
-    if ansi.supported() : println("⚠️ " + msg)
-    else : println("> Warn: " + msg)
+    if use_stderr_color() : eprintln("warning:".ansi.yellow(true) + " " + msg)
+    else : eprintln("warning: " + msg)
 }
-
 
 fn msg_uptodate() {
     if use_color() : println("# vman is " + "up-to-date".ansi.green())
     else : println("# vman is " + "up-to-date")
 }
+
+// Picks the relevant error line(s) from a failed git command's combined output
+fn git_error_detail(output: String) String {
+    let important = Array[String]{}
+    let fallback = Array[String]{}
+    each output.split("\n") as raw {
+        let line = raw.rtrim("\r").trim(" ")
+        if line.is_empty() : continue
+        if line.starts_with("fatal:") || line.starts_with("error:") || line.starts_with("remote:") {
+            important.append(line)
+        } else if fallback.length < 2 {
+            fallback.append(line)
+        }
+    }
+    let chosen = important.length > 0 ? important : fallback
+    if chosen.length == 0 : return ""
+    if chosen.length > 2 : return chosen.range(0, 2).join("; ")
+    return chosen.join("; ")
+}
+
 #if OS == "win"
 extern fn _isatty(fd: i32) i32;
 #else
 extern fn isatty(fd: i32) i32;
 #end
 
-// Colors only for a terminal, and never when NO_COLOR is set
-fn use_color() bool {
+fn is_tty(fd: i32) bool {
+    #if OS == "win"
+    return _isatty(fd) != 0
+    #else
+    return isatty(fd) != 0
+    #end
+}
+
+fn color_enabled(fd: i32) bool {
     let no_color = core.getenv("NO_COLOR") !? ""
     if !no_color.is_empty() || !ansi.supported() : return false
-    #if OS == "win"
-    return _isatty(1) != 0
-    #else
-    return isatty(1) != 0
-    #end
+    return is_tty(fd)
+}
+
+// Colors only for a terminal, and never when NO_COLOR is set
+fn use_color() bool {
+    return color_enabled(1)
+}
+
+fn use_stderr_color() bool {
+    return color_enabled(2)
 }

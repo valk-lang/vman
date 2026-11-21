@@ -1,35 +1,56 @@
 use valk.fs
 
-fn cmd_clean(what: String) {
-    let sub = what
+fn clean_packages() {
+    let config_path = Project.get_config_path()
+    if !fs.exists(config_path) {
+        println("# Not inside a project, nothing to clean")
+        return
+    }
+    let p = Project.load()
+    let removed = p.clean_vendor()
+    if removed == 0 : println("# Vendor packages are already clean")
+    else : println("# Cleaned vendor packages (removed %{removed} unused)")
+}
 
-    if sub == "packages" {
-        // If inside a project with a config, clean unused vendor packages
-        let config_path = Project.get_config_path()
-        if fs.exists(config_path) {
-            let p = Project.new()
-            p.clean_vendor()
-            println("# Cleaned vendor packages")
-        } else {
-            println("# Not inside a project, nothing to clean")
-        }
-    } else if sub == "cache" {
-        // Clear the http request cache
-        let cache_path = Cache.path()
-        if fs.exists(cache_path) : fs.delete_file(cache_path) _
-        // Remove downloaded files
-        let dir = downloads_dir()
-        fs.delete_all(dir) ! error("Failed to delete: " + dir)
-        fs.create_dir(dir) ! error("Failed to recreate downloads directory: " + dir)
-        println("# Cleaned cache")
-    } else if sub == "repos" {
-        // Remove every cloned package repository
-        let repos_dir = cache_repo_dir()
-        fs.delete_all(repos_dir) ! error("Failed to delete: " + repos_dir)
-        fs.create_dir(repos_dir) ! error("Failed to recreate repos directory: " + repos_dir)
-        println("# Cleaned repos")
+fn clean_cache() {
+    let cache_path = Cache.path()
+    let removed: uint = 0
+    if fs.exists(cache_path) {
+        fs.delete_file(cache_path) _
+        removed++
+    }
+    let dir = downloads_dir()
+    let files = fs.files_in(dir, false) !? Array[String]{}
+    removed += files.length
+    fs.delete_all(dir) ! error("Failed to delete: " + dir)
+    fs.create_dir(dir) ! error("Failed to recreate downloads directory: " + dir)
+    if removed == 0 : println("# Cache is already clean")
+    else : println("# Cleaned cache (removed %{removed} item(s))")
+}
+
+fn clean_repos() {
+    let repos_dir = cache_repo_dir()
+    let repos = fs.files_in(repos_dir, false, false, true) !? Array[String]{}
+    let count = repos.length
+    fs.delete_all(repos_dir) ! error("Failed to delete: " + repos_dir)
+    fs.create_dir(repos_dir) ! error("Failed to recreate repos directory: " + repos_dir)
+    if count == 0 : println("# Cached repos are already clean")
+    else : println("# Cleaned repos (removed %{count} repo(s))")
+}
+
+fn cmd_clean(what: String) {
+    if what == "packages" {
+        clean_packages()
+    } else if what == "cache" {
+        clean_cache()
+    } else if what == "repos" {
+        clean_repos()
+    } else if what == "all" {
+        clean_packages()
+        clean_cache()
+        clean_repos()
     } else {
-        error("Unknown clean subcommand: '" + sub + "'. Use 'packages', 'cache' or 'repos'")
+        error("Unknown clean target '" + what + "'", "Use 'packages', 'cache', 'repos' or 'all'")
     }
 }
 

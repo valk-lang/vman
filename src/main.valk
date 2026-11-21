@@ -25,10 +25,11 @@ fn build_app() cli.App {
     install.argument("alias", "The name to use the package under", false)
     install.flag("ignore-min", "", "Install packages that need a newer valk than the project uses, with a warning")
     install.flag("libs", "", "Permit the package to ship compiled libraries: writes \"libs\": true on its entry")
+    install.flag("frozen", "", "Install exact pinned versions from valk.json without modifying it")
     install.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         ignore_min = ctx.flag("ignore-min")
         libs_allowed = ctx.flag("libs")
-        cmd_package_install(ctx.has_arg("package") ? ctx.arg("package") : null, ctx.has_arg("version") ? ctx.arg("version") : null, ctx.has_arg("alias") ? ctx.arg("alias") : null)
+        cmd_package_install(ctx.has_arg("package") ? ctx.arg("package") : null, ctx.has_arg("version") ? ctx.arg("version") : null, ctx.has_arg("alias") ? ctx.arg("alias") : null, ctx.flag("frozen"))
         return 0
     })
     install.complete_argument("package", fn(words: Array[String]) Array[String] {
@@ -63,9 +64,22 @@ fn build_app() cli.App {
         return project_package_names()
     })
 
+    let outdated = cli.Command.new("outdated", "Check which project dependencies have newer versions")
+    outdated.flag("json", "", "Print the outdated dependencies as JSON")
+    outdated.on_run(fn(ctx: cli.Context) i32 !cli.Error {
+        cmd_package_outdated(ctx.flag("json"))
+        return 0
+    })
+
     let init = cli.Command.new("init", "Write a valk.json for this project")
+    init.option("name", "n", "Set the package name in valk.json")
+    init.option("use", "", "Set the valk compiler version in valk.json")
+    init.option("min", "", "Set the minimum required valk version (require.valk.min)")
     init.on_run(fn(ctx: cli.Context) i32 !cli.Error {
-        Project.init_config()
+        let name: ?String = ctx.has("name") ? ctx.value("name") : null
+        let use_ver: ?String = ctx.has("use") ? ctx.value("use") : null
+        let min_valk: ?String = ctx.has("min") ? ctx.value("min") : null
+        Project.init_config(name, use_ver, min_valk)
         return 0
     })
 
@@ -169,13 +183,13 @@ fn build_app() cli.App {
     })
 
     let clean = cli.Command.new("clean", "Remove what is no longer needed")
-    clean.argument("what", "packages, cache or repos", true)
+    clean.argument("what", "packages, cache, repos or all", true)
     clean.on_run(fn(ctx: cli.Context) i32 !cli.Error {
         cmd_clean(ctx.arg("what"))
         return 0
     })
     clean.complete_argument("what", fn(words: Array[String]) Array[String] {
-        return .{ "packages", "cache", "repos" }
+        return .{ "packages", "cache", "repos", "all" }
     })
 
     // `vman version` was there before `--version` was, and scripts use it
@@ -196,6 +210,7 @@ fn build_app() cli.App {
     app.root.command(install)
     app.root.command(update)
     app.root.command(remove)
+    app.root.command(outdated)
     app.root.command(versions)
     app.root.command(init)
     app.root.command(template)

@@ -40,13 +40,18 @@
     }
 
     /// Adds a switch, which is either given or not.
-    + fn flag(long: String, short: String (""), help: String (""), env: String ("")) SELF {
-        this.flags.append(Flag { long: long, short: short, help: help, env: env })
+    ///
+    /// A `global` one is accepted by the commands under this one too, before or after their
+    /// name: `tool -v remote add` and `tool remote add -v`. They cannot have an option of the
+    /// same name.
+    + fn flag(long: String, short: String (""), help: String (""), env: String (""), global: bool (false)) SELF {
+        this.flags.append(Flag { long: long, short: short, help: help, env: env, global: global })
         return this
     }
 
-    /// Adds an option that takes a value.
-    + fn option(long: String, short: String (""), help: String (""), default: String (""), placeholder: String ("value"), env: String (""), required: bool (false), repeated: bool (false), choices: Array[String] (.{})) SELF {
+    /// Adds an option that takes a value. A `global` one is accepted by the commands under this
+    /// one too, as `flag` describes.
+    + fn option(long: String, short: String (""), help: String (""), default: String (""), placeholder: String ("value"), env: String (""), required: bool (false), repeated: bool (false), choices: Array[String] (.{}), global: bool (false)) SELF {
         this.options.append(Option {
             long: long
             short: short
@@ -57,6 +62,7 @@
             required: required
             repeated: repeated
             choices: choices
+            global: global
         })
         return this
     }
@@ -113,16 +119,18 @@
         return null
     }
 
-    /// Returns the option with this long name, or null.
+    /// Returns the option with this long name, or null; a global option of a command above
+    /// this one counts too.
     + fn find_option(long: String) ?Option {
-        each this.options as option {
+        each this.all_options() as option {
             if option.long == long : return option
         }
         return null
     }
-    /// Returns the switch with this long name, or null.
+    /// Returns the switch with this long name, or null; a global switch of a command above this
+    /// one counts too.
     + fn find_flag(long: String) ?Flag {
-        each this.flags as flag {
+        each this.all_flags() as flag {
             if flag.long == long : return flag
         }
         return null
@@ -130,16 +138,77 @@
 
     // The same, by the single letter form
     fn find_short_option(short: String) ?Option {
-        each this.options as option {
+        each this.all_options() as option {
             if option.short.length > 0 && option.short == short : return option
         }
         return null
     }
     fn find_short_flag(short: String) ?Flag {
-        each this.flags as flag {
+        each this.all_flags() as flag {
             if flag.short.length > 0 && flag.short == short : return flag
         }
         return null
+    }
+
+    // The switches of this command, then the global ones of the commands above it
+    fn all_flags() Array[Flag] {
+        let all = this.flags.copy()
+        all.append_many(this.inherited_flags())
+        return all
+    }
+    fn all_options() Array[Option] {
+        let all = this.options.copy()
+        all.append_many(this.inherited_options())
+        return all
+    }
+    fn inherited_flags() Array[Flag] {
+        let found = Array[Flag]{}
+        let above = this.parent
+        while isset(above) {
+            each above.flags as flag {
+                if flag.global : found.append(flag)
+            }
+            above = above.parent
+        }
+        return found
+    }
+    fn inherited_options() Array[Option] {
+        let found = Array[Option]{}
+        let above = this.parent
+        while isset(above) {
+            each above.options as option {
+                if option.global : found.append(option)
+            }
+            above = above.parent
+        }
+        return found
+    }
+
+    // A command may not declare a name or letter that a global option above it already uses
+    fn check_globals() !Error {
+        let taken = Map[String]{}
+        each this.inherited_flags() as flag {
+            taken.set("--" + flag.long, flag.long)
+            if flag.short.length > 0 : taken.set("-" + flag.short, flag.long)
+        }
+        each this.inherited_options() as option {
+            taken.set("--" + option.long, option.long)
+            if option.short.length > 0 : taken.set("-" + option.short, option.long)
+        }
+        let own = Array[String]{}
+        each this.flags as flag {
+            own.append("--" + flag.long)
+            if flag.short.length > 0 : own.append("-" + flag.short)
+        }
+        each this.options as option {
+            own.append("--" + option.long)
+            if option.short.length > 0 : own.append("-" + option.short)
+        }
+        each own as name {
+            let global = taken.get(name) ! continue
+            throw .usage { message: "'" + this.path() + "' declares " + name + ", which the global option --" + global + " already uses", command: this.path() }
+        }
+        each this.commands as sub : sub.check_globals() !>
     }
 
     /// Returns the names of this command and the ones above it: `mytool remote add`.
@@ -153,7 +222,7 @@
     + fn usage() String {
         let out = ByteBuffer.new(64)
         out.write(this.path())
-        if this.flags.length > 0 || this.options.length > 0 : out.write(" [options]")
+        if this.all_flags().length > 0 || this.all_options().length > 0 : out.write(" [options]")
         if this.commands.length > 0 : out.write(this.arguments.length > 0 ? " [command]" : " <command>")
         each this.arguments as argument {
             out.write_byte(' ')

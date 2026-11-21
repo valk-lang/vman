@@ -54,6 +54,29 @@ test "Arguments" {
     assert(rest.rest.length == 3)
     assert((rest.rest.get(0) !? "") == "--not-mine")
 
+    // A required argument that nothing filled takes the words after `--`
+    let dashed = app.parse(args(.{ "--", "-file.txt", "-x" })) ! { println(E.message) assert(false) return }
+    assert(dashed.arg("source") == "-file.txt")
+    assert(dashed.rest.length == 1)
+    assert((dashed.rest.get(0) !? "") == "-x")
+
+    // Negative numbers are values, unless digits are letters of the command
+    let negative = app.parse(args(.{ "-5", "-0.5", "-v" })) ! { println(E.message) assert(false) return }
+    assert(negative.arg("source") == "-5")
+    assert((negative.args("extra").get(0) !? "") == "-0.5")
+    assert(negative.flag("verbose"))
+    let digits = cli.App.new("tool")
+    digits.root.flag("one", "1", "One")
+    digits.root.argument("value", "A value", false)
+    let lettered = digits.parse(args(.{ "-1" })) ! { assert(false) return }
+    assert(lettered.flag("one"))
+    assert(!lettered.has_arg("value"))
+    let variadic = cli.App.new("tool")
+    variadic.root.argument("files", "Files", true, true)
+    let files = variadic.parse(args(.{ "--", "-a", "-b" })) ! { println(E.message) assert(false) return }
+    assert(files.args("files").length == 2)
+    assert(files.rest.length == 0)
+
     // A `-` on its own is a value, as tools read it for standard input
     let dash = app.parse(args(.{ "-" })) ! { println(E.message) assert(false) return }
     assert(dash.arg("source") == "-")
@@ -139,4 +162,39 @@ test "Required options" {
         assert(E.message.contains("--name is required"))
     }
     assert((app.parse(args(.{ "--name", "ada" })) ! { assert(false) return }).value("name") == "ada")
+}
+
+test "Help letter" {
+    let app = simple_app()
+
+    // `-h` may be written together with other switches
+    let grouped = app.parse(args(.{ "-vh" })) ! { println(E.message) assert(false) return }
+    assert(grouped.help_asked)
+    assert(grouped.flag("verbose"))
+
+    // A command that uses the letter itself gets it, and help stays at `--help`
+    let db = cli.App.new("db", "", "")
+    db.root.option("host", "h", "The host")
+    let ctx = db.parse(args(.{ "-h", "example.com" })) ! { println(E.message) assert(false) return }
+    assert(!ctx.help_asked)
+    assert(ctx.value("host") == "example.com")
+    let offered: uint = 0
+    each db.complete(.{ "db", "-" }) as name {
+        if name == "-h" : offered++
+    }
+    assert(offered == 1)
+}
+
+test "Letters that are not ASCII" {
+    let app = cli.App.new("tool", "", "")
+    app.root.flag("eins", "é", "One")
+    app.root.flag("zwei", "z", "Two")
+    let ctx = app.parse(args(.{ "-éz" })) ! { println(E.message) assert(false) return }
+    assert(ctx.flag("eins"))
+    assert(ctx.flag("zwei"))
+    app.parse(args(.{ "-ü" })) ! {
+        assert(E.message.contains("'-ü'"))
+        return
+    }
+    assert(false)
 }

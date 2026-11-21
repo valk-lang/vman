@@ -1,4 +1,7 @@
 
+use valk.fs
+use valk.json
+
 fn valk_exe() String {
     #if OS == "win"
     return "valk.exe"
@@ -21,4 +24,8 @@ fn shell_quote(value: String) String {
     #else
     return "'" + value.replace("'", "'\\''") + "'"
     #end
+}
+
+fn write_json_file(path: String, data: json.Value) {
+    fs.write_atomic(path, data.encode(true) + "\n") ! error("Failed to save file: " + path)
 }

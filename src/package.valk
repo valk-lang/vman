@@ -26,7 +26,7 @@ class Package {
         let mask = Mask.new(requested_mask) ! error("Invalid version mask: " + requested_mask)
 
         let versions = src.get_versions()
-        if versions.length == 0 : error("Package '%name' hasnt created any versions yet")
+        if versions.length == 0 : error("Package '%name' has no tagged versions yet")
 
         let repo_dir = fs.add(cache_repo_dir(), src.name)
         let require_of = fn(v: Version) ValkRequire {
@@ -96,18 +96,36 @@ class Package {
         ensure_repo(this.src, repo_dir)
 
         // Checkout commit
-        let cmd = "git -C " + shell_quote(repo_dir) + " checkout " + shell_quote(hash)
-        let checkout_code, _ = core.exec(cmd)
-        if checkout_code != 0 : error("Package commit not found: %hash")
+        let cmd = "git -C " + shell_quote(repo_dir) + " checkout --force " + shell_quote(hash)
+        let checkout_code, checkout_out = core.exec(cmd)
+        if checkout_code != 0 {
+            let detail = git_error_detail(checkout_out)
+            let msg = "Commit '%hash' not found in package '%{this.name}'"
+            if !detail.is_empty() : msg += ": " + detail
+            error(msg, "Run 'vman clean repos' or 'vman update' if the tag was re-pushed")
+        }
 
-        // Copy files to the version directory
-        let files = fs.files_in(repo_dir, false) ! error("Failed to read directory")
+        // Stage files in a temporary directory so an interrupted install never leaves a partial package
+        let files = fs.files_in(repo_dir, false) ! error("Failed to read directory: " + repo_dir)
         if !fs.exists(this.pkg_dir) : fs.create_dir(this.pkg_dir) ! error("Failed to create directory: " + this.pkg_dir)
-        if !fs.exists(dest_dir) : fs.create_dir(dest_dir) ! error("Failed to create directory: " + dest_dir)
+        let stage_dir = dest_dir + ".tmp"
+        if fs.exists(stage_dir) : fs.delete_all(stage_dir) _
+        fs.create_dir(stage_dir) ! error("Failed to create directory: " + stage_dir)
         each files as file {
-            let fn = fs.basename(file)
-            if fn == ".git" : continue
-            fs.copy(file, fs.add(dest_dir, fn), true) _
+            let name = fs.basename(file)
+            if name == ".git" : continue
+            fs.copy(file, fs.add(stage_dir, name), true) ! {
+                fs.delete_all(stage_dir) _
+                error("Failed to copy package file: " + file)
+            }
+        }
+        if fs.exists(dest_dir) : fs.delete_all(dest_dir) ! {
+            fs.delete_all(stage_dir) _
+            error("Failed to replace existing package directory: " + dest_dir)
+        }
+        fs.move(stage_dir, dest_dir) ! {
+            fs.delete_all(stage_dir) _
+            error("Failed to finalize package directory: " + dest_dir)
         }
     }
     fn config() json.Value {
@@ -132,14 +150,24 @@ fn ensure_repo(src: Source, dir: String) {
 
     if !fs.exists(dir) {
         let cmd = "git clone " + shell_quote(src.clone_url()) + " " + shell_quote(dir)
-        let code, _ = core.exec(cmd)
-        if code == 127 : error("Git is not installed")
-        if code != 0 : error("Failed to clone package: %cmd")
+        let code, output = core.exec(cmd)
+        if code == 127 : error("Git is not installed", "Install git and make sure it is in your PATH")
+        if code != 0 {
+            let detail = git_error_detail(output)
+            let msg = "Failed to clone package 'github.com/%{src.user_name}/%{src.repo_name}'"
+            if !detail.is_empty() : msg += ": " + detail
+            error(msg)
+        }
         return
     }
 
     let cmd = "git -C " + shell_quote(dir) + " fetch --tags"
-    let code, _ = core.exec(cmd)
-    if code == 127 : error("Git is not installed")
-    if code != 0 : error("Failed to fetch package repository: %cmd")
+    let code, output = core.exec(cmd)
+    if code == 127 : error("Git is not installed", "Install git and make sure it is in your PATH")
+    if code != 0 {
+        let detail = git_error_detail(output)
+        let msg = "Failed to fetch tags for 'github.com/%{src.user_name}/%{src.repo_name}'"
+        if !detail.is_empty() : msg += ": " + detail
+        error(msg)
+    }
 }

@@ -85,7 +85,7 @@ test "Require: selects the highest version the project valk supports" {
 test "Require: reports why no version was selected" {
     let versions = Array[vman.Version] { must_version("1.2.0"), must_version("2.0.0") }
 
-    let no_match = vman.select_version(versions, must_mask("3.x"), null, require_lookup) ! {
+    vman.select_version(versions, must_mask("3.x"), null, require_lookup) ! {
         assert(E.code == E.none)
         return
     }

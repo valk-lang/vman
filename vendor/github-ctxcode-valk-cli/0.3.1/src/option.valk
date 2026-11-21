@@ -8,6 +8,8 @@
     + help: String ("")
     /// An environment variable that turns the flag on when it is `1`, `true`, `yes` or `on`.
     + env: String ("")
+    /// Whether the commands under this one accept it too: `tool remote -v`.
+    + global: bool (false)
 }
 
 /// An option that takes a value: `--output file`, `--output=file`, or `-o file`.
@@ -33,6 +35,8 @@
     /// Lists the values a shell should offer for this option, given the words typed so far.
     /// `choices` are offered without one.
     + complete: ?fn(Array[String])(Array[String]) (null)
+    /// Whether the commands under this one accept it too: `tool remote --config file`.
+    + global: bool (false)
 }
 
 /// A value that is not written behind a name: `mytool build <target>`.
