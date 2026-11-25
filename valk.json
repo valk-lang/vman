@@ -1,6 +1,6 @@
 {
     "name": "vman",
-    "use": "0.9.1",
+    "use": "0.10.0",
     "define": {
         "VERSION": "0.3.4"
     },
@@ -14,36 +14,36 @@
         "cli": {
             "src": "github.com/ctxcode/valk-cli",
             "version": "0.4.x",
-            "current": "0.4.0",
-            "current_hash": "819f8dceab4317233f8e608837df787369461efe"
+            "current": "0.4.1",
+            "current_hash": "80d2d264dd55a0caf8fcb5e07dd00cff798d826e"
         },
         "openssl_win_x64": {
             "src": "github.com/valk-lang/openssl-win-x64",
-            "current": "3.5.9",
-            "current_hash": "0068d30abd4071cf087302929422bcf91d075eed",
             "libs": true,
-            "version": "3.5.x"
+            "version": "3.5.x",
+            "current": "3.5.9",
+            "current_hash": "0068d30abd4071cf087302929422bcf91d075eed"
         },
         "openssl_macos_x64": {
             "src": "github.com/valk-lang/openssl-macos-x64",
-            "current": "3.5.9",
-            "current_hash": "05b987bf79505fbbfc982faec24bbf52a6a44b04",
             "libs": true,
-            "version": "3.5.x"
+            "version": "3.5.x",
+            "current": "3.5.9",
+            "current_hash": "05b987bf79505fbbfc982faec24bbf52a6a44b04"
         },
         "openssl_macos_arm64": {
             "src": "github.com/valk-lang/openssl-macos-arm64",
-            "current": "3.5.9",
-            "current_hash": "1edd52f3e2bb48db258f07da882f7d86a319eb9b",
             "libs": true,
-            "version": "3.5.x"
+            "version": "3.5.x",
+            "current": "3.5.9",
+            "current_hash": "1edd52f3e2bb48db258f07da882f7d86a319eb9b"
         },
         "openssl_linux_arm64": {
             "src": "github.com/valk-lang/openssl-linux-arm64",
-            "current": "3.5.9",
-            "current_hash": "bc15ef0c9556cfad4e0602837642c4a335cf67ca",
             "libs": true,
-            "version": "3.5.x"
+            "version": "3.5.x",
+            "current": "3.5.9",
+            "current_hash": "bc15ef0c9556cfad4e0602837642c4a335cf67ca"
         }
     }
 }

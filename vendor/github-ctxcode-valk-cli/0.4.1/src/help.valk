@@ -169,7 +169,7 @@ fn option_labels(command: Command, flags: Array[Flag], options: Array[Option], o
 
 // Pads to a width in characters, so names that are not ASCII line up too
 fn pad(text: String, width: uint) String {
-    return text.pad_right(' ', width + text.length - text.utf8.length)
+    return text.pad_right(width + text.length - text.utf8.length)
 }
 
 fn widest_command(command: Command) uint {

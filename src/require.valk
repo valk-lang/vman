@@ -102,7 +102,7 @@ fn pick_version(name: String, versions: Array[Version], mask: Mask, valk: ?Versi
 fn print_version_table(versions: Array[Version], valk: ?Version, require_of: fn(Version)(ValkRequire)) {
     each versions.sorted().reversed() as v {
         let req = require_of(v)
-        let line = " " + v.name.pad_right(' ', 10) + " valk: " + req.str()
+        let line = " " + v.name.pad_right(10) + " valk: " + req.str()
         if isset(valk) {
             if req.is_compat(valk) : line = line + "  " + emo("✅", "[ok]")
             else : line = line + "  " + emo("❌", "[incompatible]")
