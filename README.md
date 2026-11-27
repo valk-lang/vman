@@ -129,7 +129,7 @@ A directory is all it takes: the files to write, optionally a `template.json` be
     "description": "How this template is listed",
     "config": { "name": "{{name}}" },
     "dependencies": {
-        "cli": { "src": "github.com/ctxcode/valk-cli", "version": "0.3.x" }
+        "cli": { "src": "github.com/zikue/valk-cli", "version": "0.3.x" }
     }
 }
 ```
@@ -255,7 +255,7 @@ packages this project uses, and `vman clean <tab>` what can be cleaned.
 
 ## Building it
 
-vman reads its command line with [valk-cli](https://github.com/ctxcode/valk-cli), which lives in
+vman reads its command line with [valk-cli](https://github.com/zikue/valk-cli), which lives in
 `vendor/` in this repository so that vman builds without a package manager to install it. To
-move to a newer valk-cli, run `vman install github.com/ctxcode/valk-cli` and commit what lands
+move to a newer valk-cli, run `vman install github.com/zikue/valk-cli` and commit what lands
 in `vendor/`.

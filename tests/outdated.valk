@@ -14,7 +14,7 @@ fn outdated_req_lookup(v: vman.Version) vman.ValkRequire {
 test "Outdated: skips requirement lookup when already at newest version" {
     let calls = Array[String]{}
     let versions = Array[vman.Version]{ must_version("0.1.0"), must_version("0.2.0") }
-    let res = vman.evaluate_outdated("cli", "github.com/ctxcode/valk-cli", "0.2.0", "0.2.x", versions, must_version("0.8.10"), fn(v: vman.Version) vman.ValkRequire {
+    let res = vman.evaluate_outdated("cli", "github.com/zikue/valk-cli", "0.2.0", "0.2.x", versions, must_version("0.8.10"), fn(v: vman.Version) vman.ValkRequire {
         calls.append(v.name)
         return vman.ValkRequire {}
     })
@@ -27,21 +27,21 @@ test "Outdated: distinguishes in-mask wanted updates and out-of-mask latest upda
     let versions = Array[vman.Version]{ must_version("0.2.0"), must_version("0.2.3"), must_version("0.3.1") }
 
     // Both in-mask (0.2.3) and out-of-mask (0.3.1) updates available
-    let both = vman.evaluate_outdated("cli", "github.com/ctxcode/valk-cli", "0.2.0", "0.2.x", versions, must_version("0.8.10"), outdated_req_lookup)
+    let both = vman.evaluate_outdated("cli", "github.com/zikue/valk-cli", "0.2.0", "0.2.x", versions, must_version("0.8.10"), outdated_req_lookup)
     assert(both.is_outdated())
     assert(both.has_wanted_update && both.wanted == "0.2.3")
     assert(both.has_latest_update && both.latest == "0.3.1")
     assert(!both.needs_newer_valk)
 
     // Only out-of-mask update (0.3.1) available
-    let outer = vman.evaluate_outdated("cli", "github.com/ctxcode/valk-cli", "0.2.3", "0.2.x", versions, must_version("0.8.10"), outdated_req_lookup)
+    let outer = vman.evaluate_outdated("cli", "github.com/zikue/valk-cli", "0.2.3", "0.2.x", versions, must_version("0.8.10"), outdated_req_lookup)
     assert(outer.is_outdated())
     assert(!outer.has_wanted_update && outer.wanted == "0.2.3")
     assert(outer.has_latest_update && outer.latest == "0.3.1")
 
     // Only in-mask update available
     let inner_versions = Array[vman.Version]{ must_version("0.2.0"), must_version("0.2.3") }
-    let inner = vman.evaluate_outdated("cli", "github.com/ctxcode/valk-cli", "0.2.0", "0.2.x", inner_versions, must_version("0.8.10"), outdated_req_lookup)
+    let inner = vman.evaluate_outdated("cli", "github.com/zikue/valk-cli", "0.2.0", "0.2.x", inner_versions, must_version("0.8.10"), outdated_req_lookup)
     assert(inner.is_outdated())
     assert(inner.has_wanted_update && inner.wanted == "0.2.3")
     assert(!inner.has_latest_update && inner.latest == "0.2.3")

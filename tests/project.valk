@@ -149,12 +149,12 @@ synctest "Project: points a package at the copy of its dependency in vendor" {
     let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-test", "vendor" })
 
     // A package that depends on another package, as it arrives from its repository
-    let pkg_dir = make_dirs(vendor, .{ "github-ctxcode-example", "1.0.0" })
-    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/ctxcode/dep\",\"version\":\"0.1.x\",\"current\":\"0.1.2\",\"current_hash\":\"abc\"}}}")
+    let pkg_dir = make_dirs(vendor, .{ "github-zikue-example", "1.0.0" })
+    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/zikue/dep\",\"version\":\"0.1.x\",\"current\":\"0.1.2\",\"current_hash\":\"abc\"}}}")
 
     // Two versions of that dependency are already installed; the newest that fits the mask wins
-    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "0.1.4" }), "{\"name\":\"dep\"}")
-    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "0.2.0" }), "{\"name\":\"dep\"}")
+    write_config(make_dirs(vendor, .{ "github-zikue-dep", "0.1.4" }), "{\"name\":\"dep\"}")
+    write_config(make_dirs(vendor, .{ "github-zikue-dep", "0.2.0" }), "{\"name\":\"dep\"}")
 
     let project = vman.Project {
         dir: root
@@ -170,7 +170,7 @@ synctest "Project: points a package at the copy of its dependency in vendor" {
     // The package now points at that directory, which is where the project's own dependency on
     // the same package resolves to as well: one directory, one package
     let src = dependency_src(fs.add(pkg_dir, "valk.json"), "dep")
-    assert(src == "../../github-ctxcode-dep/0.1.4")
+    assert(src == "../../github-zikue-dep/0.1.4")
     assert(fs.is_dir(fs.add(pkg_dir, src)))
 
     // The pinned version is gone, so nothing points at the copy that is no longer used
@@ -179,7 +179,7 @@ synctest "Project: points a package at the copy of its dependency in vendor" {
 
     // A second pass leaves it alone
     assert(!project.hoist_round())
-    assert(dependency_src(fs.add(pkg_dir, "valk.json"), "dep") == "../../github-ctxcode-dep/0.1.4")
+    assert(dependency_src(fs.add(pkg_dir, "valk.json"), "dep") == "../../github-zikue-dep/0.1.4")
 
     fs.delete_all(root) _
 }
@@ -189,9 +189,9 @@ synctest "Project: a version that does not fit the mask is not reused" {
     fs.delete_all(root) _
     let vendor = make_dirs((fs.cwd() !? "."), .{ "debug", "hoist-mask-test", "vendor" })
 
-    let pkg_dir = make_dirs(vendor, .{ "github-ctxcode-example", "1.0.0" })
-    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/ctxcode/dep\",\"version\":\"2.x.x\"}}}")
-    write_config(make_dirs(vendor, .{ "github-ctxcode-dep", "1.5.0" }), "{\"name\":\"dep\"}")
+    let pkg_dir = make_dirs(vendor, .{ "github-zikue-example", "1.0.0" })
+    write_config(pkg_dir, "{\"name\":\"example\",\"dependencies\":{\"dep\":{\"src\":\"github.com/zikue/dep\",\"version\":\"2.x.x\"}}}")
+    write_config(make_dirs(vendor, .{ "github-zikue-dep", "1.5.0" }), "{\"name\":\"dep\"}")
 
     let project = vman.Project {
         dir: root
@@ -201,8 +201,8 @@ synctest "Project: a version that does not fit the mask is not reused" {
     }
 
     // 1.5.0 does not fit `2.x.x`, so the package keeps asking for a package to install
-    assert(!isset(project.vendored_version_for("github-ctxcode-dep", "2.x.x")))
-    assert(isset(project.vendored_version_for("github-ctxcode-dep", "1.x.x")))
+    assert(!isset(project.vendored_version_for("github-zikue-dep", "2.x.x")))
+    assert(isset(project.vendored_version_for("github-zikue-dep", "1.x.x")))
 
     fs.delete_all(root) _
 }
@@ -252,7 +252,7 @@ synctest "Project: init creates and updates valk.json with flags" {
 }
 
 test "Project: validates frozen dependencies" {
-    let valid = json.decode("{\"dependencies\":{\"cli\":{\"src\":\"github.com/ctxcode/valk-cli\",\"version\":\"0.3.x\",\"current\":\"0.3.1\",\"current_hash\":\"abc123\"},\"local\":{\"src\":\"../local\"}}}") !? json.new_object()
+    let valid = json.decode("{\"dependencies\":{\"cli\":{\"src\":\"github.com/zikue/valk-cli\",\"version\":\"0.3.x\",\"current\":\"0.3.1\",\"current_hash\":\"abc123\"},\"local\":{\"src\":\"../local\"}}}") !? json.new_object()
     assert(vman.validate_frozen_dependencies(valid).length == 0)
 
     let broken = json.decode("{\"dependencies\":{\"unpinned\":{\"src\":\"github.com/a/b\",\"version\":\"1.x\"},\"bad_ver\":{\"src\":\"github.com/a/c\",\"current\":\"nope\",\"current_hash\":\"abc\",\"version\":\"bad\"},\"no_src\":{}}}") !? json.new_object()
@@ -294,22 +294,22 @@ synctest "Project: clean_vendor preserves hoisted transitive dependencies and re
     defer fs.delete_all(root) _
 
     // Root depends on pkg-a 1.0.0; pkg-a depends on hoisted dep 0.1.4; dep depends on hoisted leaf 0.2.0 (and cycle back to pkg-a)
-    let pkg_a = make_dirs(vendor, .{ "github-ctxcode-pkg-a", "1.0.0" })
-    write_config(pkg_a, "{\"name\":\"pkg_a\",\"dependencies\":{\"dep\":{\"src\":\"../../github-ctxcode-dep/0.1.4\"}}}")
+    let pkg_a = make_dirs(vendor, .{ "github-zikue-pkg-a", "1.0.0" })
+    write_config(pkg_a, "{\"name\":\"pkg_a\",\"dependencies\":{\"dep\":{\"src\":\"../../github-zikue-dep/0.1.4\"}}}")
 
-    let dep_used = make_dirs(vendor, .{ "github-ctxcode-dep", "0.1.4" })
-    write_config(dep_used, "{\"name\":\"dep\",\"dependencies\":{\"leaf\":{\"src\":\"../../github-ctxcode-leaf/0.2.0\"}}}")
+    let dep_used = make_dirs(vendor, .{ "github-zikue-dep", "0.1.4" })
+    write_config(dep_used, "{\"name\":\"dep\",\"dependencies\":{\"leaf\":{\"src\":\"../../github-zikue-leaf/0.2.0\"}}}")
 
-    let leaf_used = make_dirs(vendor, .{ "github-ctxcode-leaf", "0.2.0" })
-    write_config(leaf_used, "{\"name\":\"leaf\",\"dependencies\":{\"back\":{\"src\":\"../../github-ctxcode-pkg-a/1.0.0\"}}}")
+    let leaf_used = make_dirs(vendor, .{ "github-zikue-leaf", "0.2.0" })
+    write_config(leaf_used, "{\"name\":\"leaf\",\"dependencies\":{\"back\":{\"src\":\"../../github-zikue-pkg-a/1.0.0\"}}}")
 
     // Unused version of dep and unused unrelated package
-    let dep_unused = make_dirs(vendor, .{ "github-ctxcode-dep", "0.2.0" })
+    let dep_unused = make_dirs(vendor, .{ "github-zikue-dep", "0.2.0" })
     write_config(dep_unused, "{\"name\":\"dep\"}")
-    let orphan = make_dirs(vendor, .{ "github-ctxcode-orphan", "1.0.0" })
+    let orphan = make_dirs(vendor, .{ "github-zikue-orphan", "1.0.0" })
     write_config(orphan, "{\"name\":\"orphan\"}")
 
-    let config: json.Value = json.decode("{\"dependencies\":{\"pkg_a\":{\"src\":\"github.com/ctxcode/pkg-a\",\"current\":\"1.0.0\",\"current_hash\":\"abc\"}}}") !? json.new_object()
+    let config: json.Value = json.decode("{\"dependencies\":{\"pkg_a\":{\"src\":\"github.com/zikue/pkg-a\",\"current\":\"1.0.0\",\"current_hash\":\"abc\"}}}") !? json.new_object()
     let project = vman.Project {
         dir: root
         vendor_dir: vendor
@@ -323,7 +323,7 @@ synctest "Project: clean_vendor preserves hoisted transitive dependencies and re
     assert(fs.is_dir(dep_used))
     assert(fs.is_dir(leaf_used))
     assert(!fs.is_dir(dep_unused))
-    assert(!fs.is_dir(fs.add(vendor, "github-ctxcode-orphan")))
+    assert(!fs.is_dir(fs.add(vendor, "github-zikue-orphan")))
 
     // Second clean is a no-op
     assert(project.clean_vendor() == 0)

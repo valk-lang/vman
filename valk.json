@@ -12,7 +12,7 @@
             "current_hash": "8a06ca61b23f24bce22096485d059d936dcae8fb"
         },
         "cli": {
-            "src": "github.com/ctxcode/valk-cli",
+            "src": "github.com/zikue/valk-cli",
             "version": "0.4.x",
             "current": "0.4.1",
             "current_hash": "80d2d264dd55a0caf8fcb5e07dd00cff798d826e"

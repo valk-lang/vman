@@ -4,6 +4,6 @@ vp
 vpkg
 dists
 vendor/*
-!vendor/github-ctxcode-valk-cli
-!vendor/github-ctxcode-valk-cli/**
+!vendor/github-zikue-valk-cli
+!vendor/github-zikue-valk-cli/**
 debug
